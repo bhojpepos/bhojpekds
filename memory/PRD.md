@@ -36,8 +36,15 @@ Build a production-quality **BhojPe Kitchen Display System (KDS)** web app: one 
 - Verified by testing agent (frontend, ~95% pass, no functional bugs); duplicate-testid and alert z-index nits fixed after the run.
 
 ## Backlog
-- P1: Real hardware printer integration (ESC/POS over LAN) to replace the browser print pipeline; per-user action audit log.
+- P1: Per-user action audit log; ESC/POS send moved to a background task for high-throughput kitchens.
 - P2: Dark kitchen theme, prep-time trend charts over time, multi-language, real external POS credential validation.
+
+## Iteration 5 (2026-06) — hardware, screens, email, SLA
+- **Real Printer**: `backend/printer.py` ESC/POS driver (raw TCP, default 9100) with init/bold/center/cut sequences; `_queue_print()` now attempts the hardware immediately and marks jobs `printed` or `failed` (retryable, never lost). Config (`printerHost`, `printerPort`, `printerEnabled`) lives in `/api/config`; Settings → Printer has host/port/enable plus `POST /api/print/test`. No physical printer in this environment, so sends time out by design.
+- **Station Screens**: `/station/:slug` — fully interactive per-station board (NEW/COOKING/READY only) with active/overdue counters and a station switcher; launcher in Settings → Station Screens.
+- **Daily Email Recap**: managed Resend (`backend/email_service.py`, server-side HTML template + safety gate) sent by platform cron `.emergent/crons.yml` at 23:30 Asia/Kolkata → `POST /api/cron/shift-recap` (bearer secret + `X-Webhook-Id` idempotency, acks 2xx immediately and backgrounds the work). Recipient stored server-side; Settings → Email Recap has Save recipient and Send Recap Now.
+- **Delay Alerts**: configurable promised time (`slaMinutes`, 5–30, default 10) drives card timer colors (fresh < sla/2, warning < sla, delayed ≥ sla), the Delayed filter, a one-shot loud alert per order and a red ORDER OVERDUE banner.
+- Verified: backend pytest 43/43 pass, frontend 100%. Fixed after the run: `lastRecapAt` was dropped by the `KdsConfig` response model and is now exposed by `/api/config`.
 
 ## Iteration 4 (2026-06) — kitchen operations
 - **Printer Wiring**: server-side print job queue (`print_jobs`) — every POS order auto-queues a ticket, plus manual reprint (`POST /api/print/kot/{id}`) and automatic reprint on station handoff. Tickets render as an 80mm monospace ticket through the browser/OS print pipeline (`services/printService.js`); Settings → Printer shows the live queue (auto-updates over WebSocket) with print / ack / retry per job and an Auto-print toggle. NOTE: no physical printer is attached — jobs are real records and printing goes through the OS print dialog.

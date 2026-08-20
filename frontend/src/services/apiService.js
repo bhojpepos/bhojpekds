@@ -33,6 +33,12 @@ export const fetchPrintJobs = (limit = 40) =>
 export const ackPrintJob = (jobId) => api.post(`/print/jobs/${jobId}/ack`).then((r) => r.data);
 export const retryPrintJob = (jobId) => api.post(`/print/jobs/${jobId}/retry`).then((r) => r.data);
 
+export const fetchConfig = () => api.get("/config").then((r) => r.data);
+export const saveConfig = (patch) => api.put("/config", patch).then((r) => r.data);
+export const testPrinter = () => api.post("/print/test").then((r) => r.data);
+export const sendShiftRecap = (hours = 12) =>
+  api.post("/reports/shift-recap/send", null, { params: { hours } }).then((r) => r.data);
+
 export const fetchRush = () => api.get("/stats/rush").then((r) => r.data);
 export const fetchShift = (hours = 12) =>
   api.get("/stats/shift", { params: { hours } }).then((r) => r.data);

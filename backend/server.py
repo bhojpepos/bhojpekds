@@ -1,4 +1,5 @@
 import asyncio
+import hmac
 import logging
 import os
 import random
@@ -8,13 +9,15 @@ from typing import List, Optional
 
 from bson import ObjectId
 from dotenv import load_dotenv
-from fastapi import APIRouter, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from motor.motor_asyncio import AsyncIOMotorClient
 from starlette.middleware.cors import CORSMiddleware
 
 from models import (
     AvailabilityUpdate,
+    ConfigUpdate,
     ItemDoneUpdate,
+    KdsConfig,
     MenuItem,
     Order,
     OrderCreate,
@@ -26,6 +29,8 @@ from models import (
     StatusUpdate,
     now_iso,
 )
+from printer import build_escpos, send_to_printer
+from email_service import send_email, shift_recap_html
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -247,7 +252,17 @@ def ticket_lines(order: dict) -> List[str]:
     return lines
 
 
+async def get_config() -> KdsConfig:
+    doc = await db.config.find_one({"key": "kds"})
+    if not doc:
+        cfg = KdsConfig()
+        await db.config.insert_one({**cfg.to_mongo(), "key": "kds"})
+        return cfg
+    return KdsConfig.from_mongo(doc)
+
+
 async def _queue_print(order: dict, copies: int = 1, reason: Optional[str] = None):
+    cfg = await get_config()
     job = PrintJob(
         orderId=order["id"],
         kot=order["kot"],
@@ -257,8 +272,19 @@ async def _queue_print(order: dict, copies: int = 1, reason: Optional[str] = Non
         reason=reason,
     )
     res = await db.print_jobs.insert_one(job.to_mongo())
-    doc = await db.print_jobs.find_one({"_id": res.inserted_id})
-    out = PrintJob.from_mongo(doc).model_dump()
+    job_id = res.inserted_id
+
+    # Real network printer: try the hardware immediately, keep the job queued on failure.
+    if cfg.printerEnabled and cfg.printerHost:
+        err = await send_to_printer(cfg.printerHost, cfg.printerPort, build_escpos(job.lines, copies))
+        await db.print_jobs.update_one(
+            {"_id": job_id},
+            {"$set": {"status": "failed" if err else "printed",
+                      "printedAt": None if err else now_iso(),
+                      "reason": err or reason}},
+        )
+
+    out = PrintJob.from_mongo(await db.print_jobs.find_one({"_id": job_id})).model_dump()
     await hub.broadcast("print.queued", out)
     return out
 
@@ -371,12 +397,87 @@ async def ack_print_job(job_id: str):
 @api_router.post("/print/jobs/{job_id}/retry")
 async def retry_print_job(job_id: str):
     doc = await _job(job_id)
-    await db.print_jobs.update_one(
-        {"_id": doc["_id"]}, {"$set": {"status": "queued", "printedAt": None}}
-    )
+    cfg = await get_config()
+    update = {"status": "queued", "printedAt": None}
+    if cfg.printerEnabled and cfg.printerHost:
+        err = await send_to_printer(
+            cfg.printerHost, cfg.printerPort, build_escpos(doc.get("lines", []), doc.get("copies", 1))
+        )
+        update = {"status": "failed" if err else "printed",
+                  "printedAt": None if err else now_iso(),
+                  "reason": err or doc.get("reason")}
+    await db.print_jobs.update_one({"_id": doc["_id"]}, {"$set": update})
     out = PrintJob.from_mongo(await db.print_jobs.find_one({"_id": doc["_id"]})).model_dump()
     await hub.broadcast("print.updated", out)
     return out
+
+
+@api_router.get("/config")
+async def read_config():
+    return (await get_config()).model_dump()
+
+
+@api_router.put("/config")
+async def update_config(body: ConfigUpdate):
+    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    if patch:
+        await db.config.update_one({"key": "kds"}, {"$set": patch}, upsert=True)
+    cfg = (await get_config()).model_dump()
+    await hub.broadcast("config.updated", cfg)
+    return cfg
+
+
+@api_router.post("/print/test")
+async def print_test():
+    cfg = await get_config()
+    if not (cfg.printerEnabled and cfg.printerHost):
+        raise HTTPException(400, "Configure a printer host and enable the printer first")
+    lines = ["BhojPe", "PRINTER TEST", f"HOST: {cfg.printerHost}:{cfg.printerPort}", "-" * 32,
+             "If you can read this, the", "kitchen printer is wired up.", f"AT: {now_iso()[11:19]} UTC"]
+    err = await send_to_printer(cfg.printerHost, cfg.printerPort, build_escpos(lines))
+    return {"ok": err is None, "error": err, "host": cfg.printerHost, "port": cfg.printerPort}
+
+
+async def _send_recap(hours: int = 12):
+    cfg = await get_config()
+    if not cfg.recapEmail:
+        logger.warning("Shift recap skipped: no recipient configured")
+        return {"ok": False, "reason": "No recap email configured"}
+    summary = await shift_summary(hours)
+    html = shift_recap_html(summary, "Main Branch", "All Stations")
+    email_id = await send_email(
+        to=cfg.recapEmail,
+        subject=f"Kitchen shift recap — {summary['ordersServed']} orders served",
+        html=html,
+    )
+    await db.config.update_one({"key": "kds"}, {"$set": {"lastRecapAt": now_iso()}}, upsert=True)
+    return {"ok": True, "emailId": email_id, "to": cfg.recapEmail}
+
+
+@api_router.post("/reports/shift-recap/send")
+async def send_shift_recap(hours: int = 12):
+    """Recipient comes from server-side config only — never from the caller."""
+    return await _send_recap(hours)
+
+
+@api_router.post("/cron/shift-recap")
+async def cron_shift_recap(
+    background: BackgroundTasks,
+    authorization: Optional[str] = Header(None),
+    x_webhook_id: Optional[str] = Header(None),
+):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    secret = os.environ["WEBHOOK_CRON_SECRET"]
+    token = (authorization or "").removeprefix("Bearer ").strip()
+    if not token or not hmac.compare_digest(token, secret):
+        raise HTTPException(401, "Unauthorized")
+    run_id = x_webhook_id or now_iso()
+    existing = await db.cron_runs.find_one({"runId": run_id})
+    if existing:
+        return {"ok": True, "duplicate": True, "runId": run_id}
+    await db.cron_runs.insert_one({"runId": run_id, "job": "shift-recap", "at": now_iso()})
+    background.add_task(_send_recap, 12)
+    return {"ok": True, "accepted": True, "runId": run_id}
 
 
 @api_router.get("/stats/rush")

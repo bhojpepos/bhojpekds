@@ -478,3 +478,213 @@ async def test_ws_receives_print_queued_on_pos_order():
     events = [m.get("event") for m in received]
     assert "print.queued" in events, f"got events={events}"
 
+
+
+# ============================================================
+# Iteration 5: config, printer, email recap, cron
+# ============================================================
+import socket
+
+def _reset_config():
+    requests.put(f"{API}/config", json={
+        "printerHost": "", "printerPort": 9100,
+        "printerEnabled": False, "recapEmail": "", "slaMinutes": 10,
+    })
+
+
+def test_config_get_default_shape_no_objectid():
+    _reset_config()
+    r = requests.get(f"{API}/config")
+    assert r.status_code == 200
+    d = r.json()
+    for k in ("id", "printerHost", "printerPort", "printerEnabled", "recapEmail", "slaMinutes"):
+        assert k in d
+    assert "_id" not in d
+    assert isinstance(d["id"], str)
+    assert d["printerPort"] == 9100
+    assert d["printerEnabled"] is False
+    assert d["slaMinutes"] == 10
+
+
+def test_config_put_partial_patch_and_ws_broadcast():
+    _reset_config()
+    r = requests.put(f"{API}/config", json={"slaMinutes": 15})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["slaMinutes"] == 15
+    assert d["printerEnabled"] is False  # untouched
+
+    r = requests.put(f"{API}/config", json={"printerHost": "192.168.1.50", "printerEnabled": True})
+    d = r.json()
+    assert d["printerHost"] == "192.168.1.50"
+    assert d["printerEnabled"] is True
+    assert d["slaMinutes"] == 15  # still
+
+    # verify persistence
+    d2 = requests.get(f"{API}/config").json()
+    assert d2["slaMinutes"] == 15
+    assert d2["printerHost"] == "192.168.1.50"
+    _reset_config()
+
+
+@pytest.mark.asyncio
+async def test_ws_config_updated_broadcast():
+    received = []
+    async with websockets.connect(
+        WS_URL, open_timeout=30, additional_headers={"Origin": BASE_URL},
+    ) as ws:
+        await asyncio.get_event_loop().run_in_executor(
+            None, lambda: requests.put(f"{API}/config", json={"slaMinutes": 12})
+        )
+        end = time.time() + 5
+        while time.time() < end:
+            try:
+                msg = await asyncio.wait_for(ws.recv(), timeout=max(0.1, end - time.time()))
+                received.append(json.loads(msg))
+                if any(m.get("event") == "config.updated" for m in received):
+                    break
+            except asyncio.TimeoutError:
+                break
+    events = [m.get("event") for m in received]
+    assert "config.updated" in events, f"got events={events}"
+    _reset_config()
+
+
+def test_print_test_400_when_no_host_or_disabled():
+    _reset_config()
+    r = requests.post(f"{API}/print/test")
+    assert r.status_code == 400
+    # enable but no host
+    requests.put(f"{API}/config", json={"printerEnabled": True, "printerHost": ""})
+    r = requests.post(f"{API}/print/test")
+    assert r.status_code == 400
+    _reset_config()
+
+
+def test_print_test_unreachable_host_returns_200_ok_false():
+    # pick an unroutable RFC5737 address to guarantee timeout in <=6s
+    requests.put(f"{API}/config", json={
+        "printerHost": "192.0.2.123", "printerPort": 9100, "printerEnabled": True
+    })
+    t0 = time.time()
+    r = requests.post(f"{API}/print/test", timeout=15)
+    elapsed = time.time() - t0
+    assert r.status_code == 200
+    d = r.json()
+    assert d["ok"] is False
+    assert isinstance(d.get("error"), str) and "192.0.2.123" in d["error"]
+    assert elapsed < 10, f"took {elapsed}s"
+    _reset_config()
+
+
+def test_pos_order_with_unreachable_printer_marks_failed_and_retry_stays_failed():
+    requests.post(f"{API}/demo/reset", timeout=30)
+    requests.put(f"{API}/config", json={
+        "printerHost": "192.0.2.123", "printerPort": 9100, "printerEnabled": True
+    })
+    t0 = time.time()
+    r = requests.post(f"{API}/pos/orders/random", timeout=20)
+    assert r.status_code == 200
+    o = r.json()
+    assert time.time() - t0 < 15
+    time.sleep(0.3)
+    jobs = requests.get(f"{API}/print/jobs").json()
+    job = next((j for j in jobs if j["kot"] == o["kot"]), None)
+    assert job is not None, "job missing"
+    assert job["status"] == "failed"
+    assert isinstance(job.get("reason"), str) and "192.0.2.123" in job["reason"]
+
+    # retry -> still failed, reason still mentions host
+    r = requests.post(f"{API}/print/jobs/{job['id']}/retry", timeout=20)
+    assert r.status_code == 200
+    d = r.json()
+    assert d["status"] == "failed"
+    assert "192.0.2.123" in d["reason"]
+    _reset_config()
+
+
+def test_pos_order_with_printer_disabled_stays_queued():
+    _reset_config()
+    requests.post(f"{API}/demo/reset", timeout=30)
+    r = requests.post(f"{API}/pos/orders/random")
+    o = r.json()
+    time.sleep(0.3)
+    jobs = requests.get(f"{API}/print/jobs").json()
+    job = next((j for j in jobs if j["kot"] == o["kot"]), None)
+    assert job and job["status"] == "queued"
+
+
+def test_escpos_payload_shape():
+    from importlib import import_module
+    import sys
+    sys.path.insert(0, "/app/backend")
+    printer = import_module("printer")
+    payload = printer.build_escpos(["BhojPe", "KOT / TOKEN  9999", "STATION: Tandoor", "1 x TEST"])
+    # ESC @ init
+    assert payload.startswith(b"\x1b@") or b"\x1b@" in payload[:8]
+    # Contains the strings
+    assert b"BhojPe" in payload
+    assert b"KOT / TOKEN  9999" in payload
+    assert b"STATION: Tandoor" in payload
+    assert b"1 x TEST" in payload
+    # cut command GS V B
+    assert b"\x1dV" in payload
+    # copies>1 repeats
+    p2 = printer.build_escpos(["A", "B", "C"], copies=2)
+    assert p2.count(b"\x1b@") == 2
+
+
+# ---------- cron auth ----------
+def test_cron_no_auth_returns_401():
+    r = requests.post(f"{API}/cron/shift-recap", timeout=10)
+    assert r.status_code == 401
+
+
+def test_cron_wrong_bearer_returns_401():
+    r = requests.post(f"{API}/cron/shift-recap",
+                      headers={"Authorization": "Bearer wrong-secret"}, timeout=10)
+    assert r.status_code == 401
+
+
+def test_cron_correct_bearer_and_idempotency():
+    secret = "bhojpe_kds_cron_7f42a9_c41d8e2b9a6f4d15"
+    webhook_id = f"TEST_cron_{int(time.time() * 1000)}"
+    t0 = time.time()
+    r = requests.post(f"{API}/cron/shift-recap",
+                      headers={"Authorization": f"Bearer {secret}", "X-Webhook-Id": webhook_id},
+                      timeout=10)
+    elapsed = time.time() - t0
+    assert 200 <= r.status_code < 300, r.text
+    assert elapsed < 5, f"cron took {elapsed}s"
+    d = r.json()
+    assert d.get("accepted") is True
+
+    # repeat -> duplicate true
+    r2 = requests.post(f"{API}/cron/shift-recap",
+                       headers={"Authorization": f"Bearer {secret}", "X-Webhook-Id": webhook_id},
+                       timeout=10)
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert d2.get("duplicate") is True
+
+
+# ---------- email recap ----------
+def test_shift_recap_no_recipient_returns_ok_false():
+    _reset_config()
+    r = requests.post(f"{API}/reports/shift-recap/send", timeout=15)
+    assert r.status_code == 200
+    d = r.json()
+    assert d["ok"] is False
+    assert "reason" in d
+
+
+def test_shift_recap_sends_to_delivered_and_stamps_lastRecapAt():
+    requests.put(f"{API}/config", json={"recapEmail": "delivered@resend.dev"})
+    r = requests.post(f"{API}/reports/shift-recap/send", timeout=45)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["ok"] is True
+    assert d.get("emailId")
+    cfg = requests.get(f"{API}/config").json()
+    assert cfg.get("lastRecapAt")
+    _reset_config()

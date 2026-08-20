@@ -109,6 +109,23 @@ class StationUpdate(BaseModel):
     reason: Optional[str] = None
 
 
+class KdsConfig(BaseDocument):
+    printerHost: Optional[str] = None
+    printerPort: int = 9100
+    printerEnabled: bool = False
+    recapEmail: Optional[str] = None
+    slaMinutes: int = 10
+    lastRecapAt: Optional[str] = None
+
+
+class ConfigUpdate(BaseModel):
+    printerHost: Optional[str] = None
+    printerPort: Optional[int] = None
+    printerEnabled: Optional[bool] = None
+    recapEmail: Optional[str] = None
+    slaMinutes: Optional[int] = None
+
+
 class PairRequest(BaseModel):
     syncCode: Optional[str] = None
     posCode: Optional[str] = None

@@ -1,0 +1,9 @@
+crons:
+  - name: shift-recap
+    description: "Emails the head chef the kitchen shift recap at 23:30 IST every night"
+    cron: "30 23 * * *"
+    timezone: "Asia/Kolkata"
+    endpoint: "{{BASE_URL}}/api/cron/shift-recap"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

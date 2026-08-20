@@ -24,6 +24,8 @@ const DEFAULT_SETTINGS = {
   colors: { ...DEFAULT_COLORS },
   stationFilterOn: false,
   autoPrint: false,
+  delayAlerts: true,
+  slaMinutes: 10,
 };
 
 function loadLocal() {
@@ -68,6 +70,9 @@ export function KdsProvider({ children }) {
   const [stats, setStats] = useState(null);
   const [rush, setRush] = useState(null);
   const [lastPrintJob, setLastPrintJob] = useState(null);
+  const [config, setConfig] = useState(null);
+  const [overdueAlert, setOverdueAlert] = useState(null);
+  const alertedOverdue = useRef(new Set());
   const [now, setNow] = useState(Date.now());
   const [alert, setAlert] = useState(null);
   const [undoItem, setUndoItem] = useState(null);
@@ -114,6 +119,7 @@ export function KdsProvider({ children }) {
       setMenu(m);
       setStats(st);
       setRush(ru);
+      api.fetchConfig().then(setConfig).catch(() => {});
       markOnline(true);
       return true;
     } catch {
@@ -191,6 +197,24 @@ export function KdsProvider({ children }) {
     }
   };
 
+  // Delay alerts: shout once when an order crosses its promised time
+  useEffect(() => {
+    if (!settings.delayAlerts) return;
+    const sla = settings.slaMinutes * 60;
+    const crossed = orders.filter(
+      (o) =>
+        (o.status === "new" || o.status === "cooking") &&
+        ageOf(o, now).seconds >= sla &&
+        !alertedOverdue.current.has(o.id)
+    );
+    if (!crossed.length) return;
+    crossed.forEach((o) => alertedOverdue.current.add(o.id));
+    setOverdueAlert({ kot: crossed[0].kot, station: crossed[0].station, count: crossed.length, at: Date.now() });
+    if (settings.soundOn) playAlert({ volume: settings.volume, repeat: 1 });
+    setTimeout(() => setOverdueAlert(null), 8000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now, orders, settings.delayAlerts, settings.slaMinutes]);
+
   const actions = useMemo(
     () => ({
       setPaired,
@@ -201,6 +225,12 @@ export function KdsProvider({ children }) {
       setConnection: (p) => setConnectionState((c) => ({ ...c, ...p })),
       refresh,
       refreshStats,
+
+      saveConfig: async (patch) => {
+        const res = await call(() => api.saveConfig(patch));
+        if (res) setConfig(res);
+        return res;
+      },
 
       advance: async (id) => {
         const order = orders.find((o) => o.id === id);
@@ -324,9 +354,9 @@ export function KdsProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [orders, station, undoItem, alert, refresh, refreshStats, fireAlert]  );
 
-  const state = { paired, station, settings, chef, devices, connection, orders, menu, stats, rush };
+  const state = { paired, station, settings, chef, devices, connection, orders, menu, stats, rush, config };
 
-  return <Ctx.Provider value={{ state, actions, now, alert, undoItem, lastPrintJob }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ state, actions, now, alert, undoItem, lastPrintJob, overdueAlert }}>{children}</Ctx.Provider>;
 }
 
 export const useKds = () => useContext(Ctx);
@@ -339,9 +369,9 @@ export function ageOf(order, now) {
   return { seconds: s, text: `${mm}:${ss}` };
 }
 
-export function ageLevel(seconds) {
-  if (seconds < 300) return "fresh";
-  if (seconds < 600) return "warning";
+export function ageLevel(seconds, slaSeconds = 600) {
+  if (seconds < slaSeconds / 2) return "fresh";
+  if (seconds < slaSeconds) return "warning";
   return "delayed";
 }
 

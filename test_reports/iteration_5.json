@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 5 e2e testing of BhojPe KDS (Real ESC/POS printer wiring, Station Screens, Daily Email Recap, Delay Alerts). Extended /app/backend/tests/backend_test.py from 30 → 43 tests. Pytest 42/43 PASSED (see minor issue below). Verified: GET /api/config returns default shape with string id (no _id leak), printerPort=9100, slaMinutes=10, printerEnabled=false; PUT /api/config patches only provided fields and preserves the rest; WS broadcasts config.updated within 5s; POST /api/print/test 400s when host missing or printer disabled and returns 200 with ok=false + error mentioning 192.0.2.123 in <10s when unreachable (RFC5737 sink); POS /api/pos/orders/random with printerEnabled+unreachable host completes in <15s and stores the print job as status='failed' with reason naming the host, and retry stays 'failed' with the same reason (job is retryable, not lost); printerEnabled=false keeps new jobs 'queued' (regression); ESC/POS build_escpos() output begins with ESC @ init, contains BhojPe / KOT / TOKEN 9999 / STATION: Tandoor / '1 x TEST', ends with GS V (partial cut), and copies=2 emits 2 ESC @ inits; cron /api/cron/shift-recap: no auth → 401, wrong bearer → 401, correct bearer returns accepted:true in <5s, duplicate X-Webhook-Id → duplicate:true; email /api/reports/shift-recap/send: no recipient → ok:false with reason, recipient delivered@resend.dev → ok:true with emailId. All 30 prior regression tests still pass (orders CRUD/status/recall, item done, priority, menu, prep-time, rush, shift, print ack/retry/manual reprint, station handoff+reprint, demo reset clears print_jobs, WS order.created + print.queued). Frontend Playwright: setup pairing → KDS shows delay-alert-banner for aged KOT #1029 with 'past 10 min at Pizza · 2 orders crossed'; Settings > Printer shows printer-config with enable toggle, host/port inputs and Save/Test above the print queue, saving persists, Test Print with unreachable host shows error toast, disabling printer + Test Print shows 'configure a printer' 400 detail toast; Settings > Email Recap shows recap-config, saving delivered@resend.dev persists, SEND RECAP NOW returns no JS error (backend send verified ok:true in pytest); Settings > Station Screens lists all 7 stations (open-station-*); /station/tandoor renders station-screen with station-name='Tandoor', station-active-count '2 active', station-overdue-count '0 overdue', columns NEW/COOKING/READY (no COMPLETED), 7 station-link-* switching works (link-bakery → Bakery), cards fully interactive (kot-cards with START COOKING/MARK READY buttons render and respond); Settings > Sound shows delay-alert-config + delay-alerts-toggle + sla-slider. Config reset to clean/disabled at end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/config", "issue": "lastRecapAt is written to Mongo by _send_recap() but NOT exposed by the API — the Pydantic model KdsConfig (models.py:112) has no lastRecapAt field, so KdsConfig.from_mongo drops it. The review spec explicitly requires '/api/config then exposes lastRecapAt'. Frontend OpsConfig.RecapConfig already reads cfg.lastRecapAt (line 138) and shows 'Last sent: …' — currently a dead branch. Fix: add `lastRecapAt: Optional[str] = None` to KdsConfig."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add `lastRecapAt: Optional[str] = None` to models.KdsConfig so /api/config exposes it (Mongo already stores it via _send_recap). Also add it to ConfigUpdate is NOT needed (server-set only)."
+  ],
+  "critical_code_review_comments": [
+    "models.KdsConfig is missing lastRecapAt — Pydantic silently strips it from the response even though it is upserted (server.py:453). Small schema fix.",
+    "server.py cron_shift_recap uses hmac.compare_digest correctly and 401s on empty/mismatched tokens — good.",
+    "printer._queue_print stores rendered ticket lines then attempts synchronous send_to_printer() before returning — with a 5s per-connect timeout, a POS create can block up to ~5s on unreachable hardware; measured <15s in test which is fine but for high-throughput consider firing the send in a background task and letting the client see 'queued' immediately.",
+    "print_test HTTPException(400, ...) message is 'Configure a printer host and enable the printer first' — good UX and toast shows detail correctly.",
+    "OpsConfig.RecapConfig maps the send button state to 'sending' but never disables it visually beyond the label — minor; no bug.",
+    "StationScreen filters by station equality and hides 'completed' column as required; slug() lowercases + hyphenates safely.",
+    "DelayAlertBanner reads overdueAlert from useKds — assumes state hook exposes it; verified working (banner rendered for KOT #1029).",
+    "email_service._assert_safe_email() is a strong guardrail; managed Resend via EMERGENT_EMAIL_KEY works (delivered@resend.dev returned an emailId)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added 13 iter-5 tests: config GET/PUT/WS, print/test 400 + unreachable ok:false, POS with unreachable printer marks failed + retry stays failed, printer disabled stays queued, ESC/POS payload shape, cron no-auth/wrong/correct+idempotency, recap no-recipient/delivered)"
+  ],
+  "success_rate": {"backend": "97.7% (42/43); only failure is the lastRecapAt exposure schema miss", "frontend": "100% on all tested flows"},
+  "test_credentials": "None. Pre-filled BHP-8F42-K91 / POS-7F42A9. Cron bearer bhojpe_kds_cron_7f42a9_c41d8e2b9a6f4d15. Email delivered@resend.dev only.",
+  "seed_data_creation": "POST /api/demo/reset seeds 15 KOTs + 12 menu items + clears print_jobs. Config reset via PUT /api/config back to printerHost='', printerEnabled=false, recapEmail='', slaMinutes=10 at end of test run (demo starts clean).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests: `pytest backend/tests/backend_test.py -v` (43 tests, ~2m). The unreachable printer test uses 192.0.2.123 (RFC5737 TEST-NET-1) — guarantees a ~5s TCP timeout without touching real hosts. Cron tests use X-Webhook-Id 'TEST_cron_<epoch_ms>' so idempotency is verified without collisions. Email recap test is asserted against delivered@resend.dev only. New testids present: printer-config, printer-enabled-toggle, printer-host-input, printer-port-input, save-printer-btn, test-printer-btn, recap-config, recap-email-input, save-recap-email-btn, send-recap-now-btn, delay-alert-config, delay-alerts-toggle, sla-slider, delay-alert-banner, settings-tab-recap, settings-tab-stations, open-station-<slug>, station-screen, station-name, station-active-count, station-overdue-count, station-link-<slug>, station-back-link. Known bug: lastRecapAt not exposed via /api/config (models.KdsConfig missing the field). After E1 fixes it, re-run test_shift_recap_sends_to_delivered_and_stamps_lastRecapAt.",
+  "rca of the issue": "Bug — /api/config missing lastRecapAt. RCA: server.py:_send_recap() writes {'lastRecapAt': now_iso()} to db.config via $set (line 453), but the response goes through KdsConfig(**doc) which whitelists only the declared fields (printerHost, printerPort, printerEnabled, recapEmail, slaMinutes). Because Pydantic v2 with default config ignores unknown keys on model construction, lastRecapAt is silently dropped. Reproduction: PUT /api/config recapEmail=delivered@resend.dev → POST /api/reports/shift-recap/send (returns ok:true, emailId set) → GET /api/config → response has NO lastRecapAt key. Mitigation: add `lastRecapAt: Optional[str] = None` to KdsConfig in /app/backend/models.py:112. Frontend already reads cfg.lastRecapAt in OpsConfig.jsx:138 so no UI change is needed."
+}

@@ -27,7 +27,7 @@ const PRIORITY = {
 export const KOTCard = ({ order }) => {
   const { now, state, actions } = useKds();
   const age = ageOf(order, now);
-  const level = ageLevel(age.seconds);
+  const level = ageLevel(age.seconds, state.settings.slaMinutes * 60);
   const timer = TIMER_STYLE[level];
   const type = TYPE_META[order.type] || TYPE_META["dine-in"];
   const statusColor = state.settings.colors[order.status];

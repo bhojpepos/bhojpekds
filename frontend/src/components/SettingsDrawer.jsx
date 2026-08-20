@@ -11,10 +11,11 @@ import { ItemAvailability } from "@/components/ItemAvailability";
 import { TokenScreenPreview } from "@/components/TokenScreenPreview";
 import { PrepInsights } from "@/components/PrepInsights";
 import { PrintQueue, ShiftSummary } from "@/components/KitchenOps";
+import { PrinterConfig, RecapConfig, DelayAlertConfig } from "@/components/OpsConfig";
 import { playTestBeep } from "@/services/soundService";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Plus, Timer, Printer, ClipboardList } from "lucide-react";
+import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Plus, Timer, Printer, ClipboardList, Mail } from "lucide-react";
 
 const TABS = [
   { id: "connection", label: "Connection", Icon: Plug },
@@ -29,6 +30,8 @@ const TABS = [
   { id: "insights", label: "Prep Insights", Icon: Timer },
   { id: "printer", label: "Printer", Icon: Printer },
   { id: "shift", label: "Shift Summary", Icon: ClipboardList },
+  { id: "recap", label: "Email Recap", Icon: Mail },
+  { id: "stations", label: "Station Screens", Icon: MonitorSmartphone },
   { id: "notifications", label: "Notifications", Icon: Bell },
   { id: "demo", label: "Demo Controls", Icon: Beaker },
 ];
@@ -165,6 +168,8 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
               <Slider data-testid="duration-slider" value={[s.alertDuration]} min={2} max={15} step={1} onValueChange={([v]) => actions.setSettings({ alertDuration: v })} />
             </div>
             <Btn testId="test-sound-btn" onClick={() => playTestBeep(s.volume)}>Test Sound</Btn>
+            <div className="h-px bg-[#E5E7EB]" />
+            <DelayAlertConfig />
             <Btn testId="simulate-kot-btn" variant="primary" onClick={async () => { const o = await actions.newKot(); toast[o ? "success" : "error"](o ? `KOT #${o.kot} received` : "Server unreachable"); }}>
               Simulate New KOT
             </Btn>
@@ -225,9 +230,36 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
       case "insights":
         return <PrepInsights />;
       case "printer":
-        return <PrintQueue />;
+        return (
+          <div className="space-y-4">
+            <PrinterConfig />
+            <div className="h-px bg-[#E5E7EB]" />
+            <PrintQueue />
+          </div>
+        );
       case "shift":
         return <ShiftSummary />;
+      case "recap":
+        return <RecapConfig />;
+      case "stations":
+        return (
+          <div className="space-y-3">
+            <div className="bg-white border border-[#E5E7EB] rounded-md p-3 text-sm opacity-70">
+              Open a station screen on any tablet or TV — it shows only that station's dishes and stays fully interactive.
+            </div>
+            {STATIONS.map((st) => (
+              <Btn
+                key={st}
+                testId={`open-station-${st.replace(/\s+/g, "-").toLowerCase()}`}
+                onClick={() => window.open(`/station/${st.replace(/\s+/g, "-").toLowerCase()}`, "_blank")}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <ExternalLink className="w-4 h-4" /> {st}
+                </span>
+              </Btn>
+            ))}
+          </div>
+        );
       case "token":
         return (
           <div className="space-y-3">

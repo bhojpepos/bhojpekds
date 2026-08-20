@@ -5,6 +5,7 @@ import { STATUS_ORDER, STATUS_LABEL } from "@/services/mockOrderService";
 import { Header } from "@/components/Header";
 import { FilterBar } from "@/components/FilterBar";
 import { RushIndicator } from "@/components/RushIndicator";
+import { DelayAlertBanner } from "@/components/DelayAlertBanner";
 import { StatusColumn } from "@/components/StatusColumn";
 import { NewOrderAlert } from "@/components/NewOrderAlert";
 import { SettingsDrawer } from "@/components/SettingsDrawer";
@@ -44,7 +45,7 @@ export default function KDS() {
       if (state.settings.stationFilterOn && o.station !== state.station) return false;
       if (["new", "cooking", "ready"].includes(filter) && o.status !== filter) return false;
       if (["dine-in", "takeaway", "delivery"].includes(filter) && o.type !== filter) return false;
-      if (filter === "delayed" && ageLevel(ageOf(o, now).seconds) !== "delayed") return false;
+      if (filter === "delayed" && ageLevel(ageOf(o, now).seconds, state.settings.slaMinutes * 60) !== "delayed") return false;
       if (q) {
         const hay = `${o.kot} ${o.table || ""} ${o.refNo || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -71,6 +72,7 @@ export default function KDS() {
 
       <FilterBar filter={filter} setFilter={setFilter} query={query} setQuery={setQuery} />
       <RushIndicator />
+      <DelayAlertBanner />
 
       {/* Mobile segmented status navigation */}
       {isNarrow && <div className="flex gap-2 px-3 py-2 bg-white border-b border-[#E5E7EB] overflow-x-auto thin-scroll">
