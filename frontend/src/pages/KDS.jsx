@@ -4,6 +4,7 @@ import { useKds, ageOf, ageLevel } from "@/state/kdsState";
 import { STATUS_ORDER, STATUS_LABEL } from "@/services/mockOrderService";
 import { Header } from "@/components/Header";
 import { FilterBar } from "@/components/FilterBar";
+import { RushIndicator } from "@/components/RushIndicator";
 import { StatusColumn } from "@/components/StatusColumn";
 import { NewOrderAlert } from "@/components/NewOrderAlert";
 import { SettingsDrawer } from "@/components/SettingsDrawer";
@@ -69,6 +70,7 @@ export default function KDS() {
       )}
 
       <FilterBar filter={filter} setFilter={setFilter} query={query} setQuery={setQuery} />
+      <RushIndicator />
 
       {/* Mobile segmented status navigation */}
       {isNarrow && <div className="flex gap-2 px-3 py-2 bg-white border-b border-[#E5E7EB] overflow-x-auto thin-scroll">

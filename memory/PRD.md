@@ -36,8 +36,15 @@ Build a production-quality **BhojPe Kitchen Display System (KDS)** web app: one 
 - Verified by testing agent (frontend, ~95% pass, no functional bugs); duplicate-testid and alert z-index nits fixed after the run.
 
 ## Backlog
-- P1: Multi-station board switching without reload; KOT reprint to kitchen printer; per-user action audit log.
+- P1: Real hardware printer integration (ESC/POS over LAN) to replace the browser print pipeline; per-user action audit log.
 - P2: Dark kitchen theme, prep-time trend charts over time, multi-language, real external POS credential validation.
+
+## Iteration 4 (2026-06) — kitchen operations
+- **Printer Wiring**: server-side print job queue (`print_jobs`) — every POS order auto-queues a ticket, plus manual reprint (`POST /api/print/kot/{id}`) and automatic reprint on station handoff. Tickets render as an 80mm monospace ticket through the browser/OS print pipeline (`services/printService.js`); Settings → Printer shows the live queue (auto-updates over WebSocket) with print / ack / retry per job and an Auto-print toggle. NOTE: no physical printer is attached — jobs are real records and printing goes through the OS print dialog.
+- **Station Handoff**: `PATCH /api/orders/{id}/station` moves a KOT between stations, appends a `handoffs` history entry and queues a reprint at the new station; each card has a MOVE STATION dropdown and shows a "moved from X" tag.
+- **Shift Summary**: `GET /api/stats/shift?hours=6|12|24` → orders/items served, average prep, slowest dishes, most ordered and per-station counts; shown in Settings → Shift Summary.
+- **Rush Hour View**: `GET /api/stats/rush` → ON TRACK / BUSY / RUSH level, average time behind the 10-minute target, active/delayed counts, oldest order and orders per hour; live bar under the filters, polled every 15s.
+- Verified: backend pytest 30/30 pass, frontend 100% on all tested flows, no bugs reported. Post-run improvements: print queue now live over WebSocket and the rush label reads "Avg behind by".
 
 ## Iteration 2 (2026-06) — server-backed
 - **Live POS Wiring**: real FastAPI "BhojPe Server" (`/app/backend/server.py` + `models.py`) with MongoDB persistence and a WebSocket feed at `/api/ws`. Endpoints: `/api/health`, `/api/pair`, `/api/orders`, `/api/pos/orders`, `/api/pos/orders/random`, `/api/orders/{id}/status|priority|items/{i}`, `DELETE /api/orders/{id}`, `/api/menu`, `PATCH /api/menu/{id}`, `/api/stats/prep-time`, `/api/demo/reset`, `/api/demo/delay/{id}`. Frontend uses `services/apiService.js` + `services/realtime.js`; new POS orders appear on the board instantly with the loud alert. localStorage still caches orders so the board keeps working in Local Mode.

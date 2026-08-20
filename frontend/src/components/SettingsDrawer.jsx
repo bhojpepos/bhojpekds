@@ -10,10 +10,11 @@ import { DeviceCard } from "@/components/DeviceCard";
 import { ItemAvailability } from "@/components/ItemAvailability";
 import { TokenScreenPreview } from "@/components/TokenScreenPreview";
 import { PrepInsights } from "@/components/PrepInsights";
+import { PrintQueue, ShiftSummary } from "@/components/KitchenOps";
 import { playTestBeep } from "@/services/soundService";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Plus, Timer } from "lucide-react";
+import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Plus, Timer, Printer, ClipboardList } from "lucide-react";
 
 const TABS = [
   { id: "connection", label: "Connection", Icon: Plug },
@@ -26,6 +27,8 @@ const TABS = [
   { id: "items", label: "Items", Icon: Package },
   { id: "token", label: "Token Screen", Icon: Tv },
   { id: "insights", label: "Prep Insights", Icon: Timer },
+  { id: "printer", label: "Printer", Icon: Printer },
+  { id: "shift", label: "Shift Summary", Icon: ClipboardList },
   { id: "notifications", label: "Notifications", Icon: Bell },
   { id: "demo", label: "Demo Controls", Icon: Beaker },
 ];
@@ -221,6 +224,10 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
         return <ItemAvailability />;
       case "insights":
         return <PrepInsights />;
+      case "printer":
+        return <PrintQueue />;
+      case "shift":
+        return <ShiftSummary />;
       case "token":
         return (
           <div className="space-y-3">

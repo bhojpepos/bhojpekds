@@ -254,3 +254,227 @@ async def test_ws_receives_order_created():
                 break
     events = [m.get("event") for m in received]
     assert "order.created" in events, f"got events={events}"
+
+
+# ============================================================
+# Iteration 3: print queue, station handoff, rush, shift stats
+# ============================================================
+
+def test_pos_order_auto_queues_print_job_with_ticket_lines():
+    # reset print queue by hitting demo/reset so we know newest job is ours
+    requests.post(f"{API}/demo/reset", timeout=30)
+    o = requests.post(f"{API}/pos/orders", json={
+        "type": "dine-in", "table": "Table 9", "station": "Tandoor",
+        "items": [{"qty": 2, "name": "TEST_TicketDish", "note": "Spicy"}],
+    }).json()
+    time.sleep(0.3)
+    jobs = requests.get(f"{API}/print/jobs", params={"status": "queued"}).json()
+    assert jobs, "no queued print jobs"
+    # newest first -> our order should be first
+    job = next((j for j in jobs if j["kot"] == o["kot"]), None)
+    assert job, f"no queued job for kot {o['kot']}"
+    assert job["station"] == "Tandoor"
+    assert job["status"] == "queued"
+    assert isinstance(job["lines"], list) and len(job["lines"]) > 0
+    joined = "\n".join(job["lines"])
+    assert "BhojPe" in joined
+    assert f"KOT / TOKEN  {o['kot']}" in joined or f"KOT / TOKEN {o['kot']}" in joined
+    assert "STATION: Tandoor" in joined
+    assert "2 x TEST_TicketDish" in joined
+
+
+def test_pos_orders_random_also_queues_print():
+    before = requests.get(f"{API}/print/jobs").json()
+    r = requests.post(f"{API}/pos/orders/random", timeout=15)
+    assert r.status_code == 200
+    o = r.json()
+    time.sleep(0.3)
+    after = requests.get(f"{API}/print/jobs").json()
+    assert len(after) == len(before) + 1
+    assert after[0]["kot"] == o["kot"]
+
+
+def test_print_jobs_filter_and_manual_reprint():
+    o = _new_order()
+    r = requests.post(f"{API}/print/kot/{o['id']}", timeout=15)
+    assert r.status_code == 200
+    job = r.json()
+    assert job["reason"] == "Manual reprint"
+    assert job["status"] == "queued"
+    assert job["kot"] == o["kot"]
+    # ?status=queued filter
+    queued = requests.get(f"{API}/print/jobs", params={"status": "queued"}).json()
+    assert all(j["status"] == "queued" for j in queued)
+
+
+def test_print_job_ack_and_retry_flow():
+    o = _new_order()
+    j = requests.post(f"{API}/print/kot/{o['id']}").json()
+    jid = j["id"]
+    # ack
+    r = requests.post(f"{API}/print/jobs/{jid}/ack")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["status"] == "printed"
+    assert d["printedAt"]
+    # retry -> back to queued
+    r = requests.post(f"{API}/print/jobs/{jid}/retry")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["status"] == "queued"
+    assert d["printedAt"] is None
+
+
+def test_print_job_unknown_id_404():
+    r = requests.post(f"{API}/print/jobs/507f1f77bcf86cd799439011/ack")
+    assert r.status_code == 404
+    r = requests.post(f"{API}/print/jobs/not-an-id/retry")
+    assert r.status_code == 404
+
+
+def test_manual_print_unknown_order_404():
+    r = requests.post(f"{API}/print/kot/507f1f77bcf86cd799439011")
+    assert r.status_code == 404
+
+
+# ---------- station handoff ----------
+def test_station_handoff_moves_and_records_and_queues_print():
+    o = requests.post(f"{API}/pos/orders", json={
+        "type": "dine-in", "station": "Bakery",
+        "items": [{"qty": 1, "name": "TEST_HandoffDish"}],
+    }).json()
+    oid = o["id"]
+    before_jobs = requests.get(f"{API}/print/jobs").json()
+
+    r = requests.patch(f"{API}/orders/{oid}/station",
+                       json={"station": "Tandoor", "reason": "wrong station"})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["station"] == "Tandoor"
+    assert d["handoffs"] and d["handoffs"][-1]["from"] == "Bakery"
+    assert d["handoffs"][-1]["to"] == "Tandoor"
+    assert d["handoffs"][-1]["reason"] == "wrong station"
+
+    # print job auto-queued with handoff reason
+    time.sleep(0.3)
+    after_jobs = requests.get(f"{API}/print/jobs").json()
+    assert len(after_jobs) >= len(before_jobs) + 1
+    hj = next((j for j in after_jobs if j["kot"] == o["kot"] and j.get("reason", "").startswith("Handoff")), None)
+    assert hj is not None, "no handoff reprint queued"
+    assert hj["station"] == "Tandoor"
+    assert "Bakery -> Tandoor" in hj["reason"]
+
+
+def test_station_handoff_same_station_noop():
+    o = requests.post(f"{API}/pos/orders", json={
+        "type": "dine-in", "station": "Pizza",
+        "items": [{"qty": 1, "name": "TEST_NoOpHandoff"}],
+    }).json()
+    r = requests.patch(f"{API}/orders/{o['id']}/station", json={"station": "Pizza"})
+    assert r.status_code == 200
+    d = r.json()
+    # no handoff entry added
+    assert not d.get("handoffs")
+
+
+def test_station_handoff_unknown_order_404():
+    r = requests.patch(f"{API}/orders/507f1f77bcf86cd799439011/station",
+                       json={"station": "Tandoor"})
+    assert r.status_code == 404
+
+
+# ---------- rush stats ----------
+def test_rush_stats_shape_and_escalation():
+    r = requests.get(f"{API}/stats/rush")
+    assert r.status_code == 200
+    d = r.json()
+    for k in ("level", "activeCount", "delayedCount", "behindSeconds",
+              "oldestSeconds", "ordersLastHour", "targetSeconds"):
+        assert k in d
+    assert d["targetSeconds"] == 600
+    assert d["level"] in ("on-track", "busy", "rush")
+
+    # age several active orders to force rush
+    active = [o for o in requests.get(f"{API}/orders").json()
+              if o["status"] in ("new", "cooking")]
+    assert len(active) >= 4
+    for o in active[:5]:
+        requests.post(f"{API}/demo/delay/{o['id']}")
+    d2 = requests.get(f"{API}/stats/rush").json()
+    assert d2["delayedCount"] >= 4
+    assert d2["level"] == "rush"
+
+
+# ---------- shift summary ----------
+def test_shift_summary_shape_and_updates():
+    # baseline
+    r = requests.get(f"{API}/stats/shift", params={"hours": 24})
+    assert r.status_code == 200
+    d = r.json()
+    for k in ("hours", "ordersTotal", "ordersServed", "itemsServed",
+              "avgPrepSeconds", "byType", "byStation", "slowestDishes", "topDishes"):
+        assert k in d
+    assert d["hours"] == 24
+    assert len(d["slowestDishes"]) <= 5
+    assert len(d["topDishes"]) <= 5
+
+    # 6h window returns hours=6
+    r6 = requests.get(f"{API}/stats/shift", params={"hours": 6}).json()
+    assert r6["hours"] == 6
+
+    # after cook->ready, ordersServed grows
+    before = requests.get(f"{API}/stats/shift", params={"hours": 24}).json()["ordersServed"]
+    o = requests.post(f"{API}/pos/orders", json={
+        "type": "takeaway", "station": "Bar",
+        "items": [{"qty": 1, "name": "TEST_ShiftDish"}],
+    }).json()
+    requests.patch(f"{API}/orders/{o['id']}/status", json={"status": "cooking"})
+    time.sleep(1.1)
+    requests.patch(f"{API}/orders/{o['id']}/status", json={"status": "ready"})
+    after = requests.get(f"{API}/stats/shift", params={"hours": 24}).json()
+    assert after["ordersServed"] >= before + 1
+    # slowestDishes sorted desc
+    slow = after["slowestDishes"]
+    if len(slow) >= 2:
+        assert slow[0]["avgSeconds"] >= slow[1]["avgSeconds"]
+
+
+# ---------- demo reset clears print jobs ----------
+def test_demo_reset_clears_print_jobs():
+    # queue something
+    o = _new_order()
+    requests.post(f"{API}/print/kot/{o['id']}")
+    assert len(requests.get(f"{API}/print/jobs").json()) > 0
+    r = requests.post(f"{API}/demo/reset")
+    assert r.status_code == 200
+    time.sleep(0.3)
+    jobs = requests.get(f"{API}/print/jobs").json()
+    assert jobs == [] or all(j.get("kot") for j in jobs) is not None
+    # explicitly assert empty
+    assert jobs == []
+
+
+# ---------- websocket print.queued ----------
+@pytest.mark.asyncio
+async def test_ws_receives_print_queued_on_pos_order():
+    received = []
+    async with websockets.connect(
+        WS_URL, open_timeout=30,
+        additional_headers={"Origin": BASE_URL},
+    ) as ws:
+        await asyncio.get_event_loop().run_in_executor(
+            None, lambda: requests.post(f"{API}/pos/orders/random", timeout=15)
+        )
+        end = time.time() + 6
+        while time.time() < end:
+            try:
+                remaining = max(0.1, end - time.time())
+                msg = await asyncio.wait_for(ws.recv(), timeout=remaining)
+                received.append(json.loads(msg))
+                if any(m.get("event") == "print.queued" for m in received):
+                    break
+            except asyncio.TimeoutError:
+                break
+    events = [m.get("event") for m in received]
+    assert "print.queued" in events, f"got events={events}"
+

@@ -20,7 +20,9 @@ from models import (
     OrderCreate,
     OrderItem,
     PairRequest,
+    PrintJob,
     PriorityUpdate,
+    StationUpdate,
     StatusUpdate,
     now_iso,
 )
@@ -147,6 +149,7 @@ async def seed(force: bool = False):
         await db.orders.delete_many({})
         await db.menu.delete_many({})
         await db.counters.delete_many({})
+        await db.print_jobs.delete_many({})
     if await db.orders.count_documents({}) == 0:
         await db.orders.insert_many(seed_orders_payload())
         await db.counters.update_one({"_id": "kot"}, {"$set": {"seq": 10}}, upsert=True)
@@ -196,13 +199,14 @@ async def list_orders(station: Optional[str] = None):
 
 @api_router.post("/pos/orders")
 async def pos_create_order(body: OrderCreate):
-    """POS creates an order -> becomes a KOT on the KDS."""
+    """POS creates an order -> becomes a KOT on the KDS (and queues a printer ticket)."""
     kot = await next_kot()
     order = Order(kot=kot, **body.model_dump())
     res = await db.orders.insert_one(order.to_mongo())
     doc = await db.orders.find_one({"_id": res.inserted_id})
     out = order_out(doc)
     await hub.broadcast("order.created", out)
+    await _queue_print(out)
     return out
 
 
@@ -220,6 +224,43 @@ async def pos_create_random(station: Optional[str] = None):
         items=[OrderItem(qty=random.randint(1, 3), name=m.name, note=random.choice(["Extra Spicy", "No Onion", "Less Oil", None, None])) for m in picked],
     )
     return await pos_create_order(body)
+
+
+def ticket_lines(order: dict) -> List[str]:
+    lines = [
+        "BhojPe",
+        f"KOT / TOKEN  {order['kot']}",
+        f"{order['type'].upper()}  {order.get('table') or order.get('refNo') or ''}".strip(),
+        f"STATION: {order['station']}",
+        "-" * 32,
+    ]
+    for i in order.get("items", []):
+        lines.append(f"{i['qty']} x {i['name']}")
+        if i.get("note"):
+            lines.append(f"   >> {i['note']}")
+    lines.append("-" * 32)
+    if order.get("note"):
+        lines.append(f"NOTE: {order['note']}")
+    if order.get("priority") and order["priority"] != "normal":
+        lines.append(f"** {order['priority'].upper()} **")
+    lines.append(f"PRINTED: {now_iso()[11:19]} UTC")
+    return lines
+
+
+async def _queue_print(order: dict, copies: int = 1, reason: Optional[str] = None):
+    job = PrintJob(
+        orderId=order["id"],
+        kot=order["kot"],
+        station=order["station"],
+        copies=copies,
+        lines=ticket_lines(order),
+        reason=reason,
+    )
+    res = await db.print_jobs.insert_one(job.to_mongo())
+    doc = await db.print_jobs.find_one({"_id": res.inserted_id})
+    out = PrintJob.from_mongo(doc).model_dump()
+    await hub.broadcast("print.queued", out)
+    return out
 
 
 async def _get_order(order_id: str):
@@ -276,6 +317,166 @@ async def clear_order(order_id: str):
     await db.orders.delete_one({"_id": doc["_id"]})
     await hub.broadcast("order.removed", {"id": str(doc["_id"])})
     return {"ok": True, "id": str(doc["_id"])}
+
+
+@api_router.patch("/orders/{order_id}/station")
+async def handoff_station(order_id: str, body: StationUpdate):
+    doc = await _get_order(order_id)
+    prev = doc.get("station")
+    if body.station == prev:
+        return order_out(doc)
+    entry = {"from": prev, "to": body.station, "at": now_iso(), "reason": body.reason}
+    await db.orders.update_one(
+        {"_id": doc["_id"]}, {"$set": {"station": body.station}, "$push": {"handoffs": entry}}
+    )
+    out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
+    await hub.broadcast("order.updated", out)
+    await _queue_print(out, reason=f"Handoff {prev} -> {body.station}")
+    return out
+
+
+@api_router.post("/print/kot/{order_id}")
+async def print_kot(order_id: str, copies: int = 1):
+    doc = await _get_order(order_id)
+    return await _queue_print(order_out(doc), copies=copies, reason="Manual reprint")
+
+
+@api_router.get("/print/jobs")
+async def list_print_jobs(limit: int = 40, status: Optional[str] = None):
+    q = {"status": status} if status else {}
+    docs = await db.print_jobs.find(q).sort("_id", -1).to_list(limit)
+    return [PrintJob.from_mongo(d).model_dump() for d in docs]
+
+
+async def _job(job_id: str):
+    if not ObjectId.is_valid(job_id):
+        raise HTTPException(404, "Print job not found")
+    doc = await db.print_jobs.find_one({"_id": ObjectId(job_id)})
+    if not doc:
+        raise HTTPException(404, "Print job not found")
+    return doc
+
+
+@api_router.post("/print/jobs/{job_id}/ack")
+async def ack_print_job(job_id: str):
+    doc = await _job(job_id)
+    await db.print_jobs.update_one(
+        {"_id": doc["_id"]}, {"$set": {"status": "printed", "printedAt": now_iso()}}
+    )
+    out = PrintJob.from_mongo(await db.print_jobs.find_one({"_id": doc["_id"]})).model_dump()
+    await hub.broadcast("print.updated", out)
+    return out
+
+
+@api_router.post("/print/jobs/{job_id}/retry")
+async def retry_print_job(job_id: str):
+    doc = await _job(job_id)
+    await db.print_jobs.update_one(
+        {"_id": doc["_id"]}, {"$set": {"status": "queued", "printedAt": None}}
+    )
+    out = PrintJob.from_mongo(await db.print_jobs.find_one({"_id": doc["_id"]})).model_dump()
+    await hub.broadcast("print.updated", out)
+    return out
+
+
+@api_router.get("/stats/rush")
+async def rush_status():
+    """Live 'how far behind is the kitchen' indicator."""
+    target = 600  # 10 min service target from order creation to ready
+    active = await db.orders.find({"status": {"$in": ["new", "cooking"]}}).to_list(1000)
+    nowts = datetime.now(timezone.utc)
+    ages = []
+    for d in active:
+        try:
+            ages.append((nowts - datetime.fromisoformat(d["createdAt"])).total_seconds())
+        except Exception:
+            continue
+    delayed = [a for a in ages if a >= target]
+    behind = max(0, round((sum(ages) / len(ages)) - target)) if ages else 0
+
+    hour_ago = nowts.timestamp() - 3600
+    recent = 0
+    for d in await db.orders.find({}).to_list(1000):
+        try:
+            if datetime.fromisoformat(d["createdAt"]).timestamp() >= hour_ago:
+                recent += 1
+        except Exception:
+            continue
+
+    if len(delayed) >= 4 or behind > 240:
+        level = "rush"
+    elif len(delayed) >= 1 or len(active) >= 8:
+        level = "busy"
+    else:
+        level = "on-track"
+
+    return {
+        "level": level,
+        "activeCount": len(active),
+        "delayedCount": len(delayed),
+        "behindSeconds": behind,
+        "oldestSeconds": round(max(ages)) if ages else 0,
+        "ordersLastHour": recent,
+        "targetSeconds": target,
+        "generatedAt": now_iso(),
+    }
+
+
+@api_router.get("/stats/shift")
+async def shift_summary(hours: int = 12):
+    since = datetime.now(timezone.utc).timestamp() - hours * 3600
+    docs = []
+    for d in await db.orders.find({}).to_list(2000):
+        try:
+            if datetime.fromisoformat(d["createdAt"]).timestamp() >= since:
+                docs.append(d)
+        except Exception:
+            continue
+
+    served = [d for d in docs if d.get("status") == "completed" or d.get("readyAt")]
+    by_type, by_station, dish = {}, {}, {}
+    preps = []
+    for d in docs:
+        by_type[d["type"]] = by_type.get(d["type"], 0) + 1
+        by_station[d["station"]] = by_station.get(d["station"], 0) + 1
+        prep = None
+        if d.get("startedAt") and d.get("readyAt"):
+            try:
+                prep = (datetime.fromisoformat(d["readyAt"]) - datetime.fromisoformat(d["startedAt"])).total_seconds()
+            except Exception:
+                prep = None
+        if prep and prep > 0:
+            preps.append(prep)
+        for i in d.get("items", []):
+            e = dish.setdefault(i["name"], {"qty": 0, "total": 0.0, "count": 0})
+            e["qty"] += i.get("qty", 1)
+            if prep and prep > 0:
+                e["total"] += prep
+                e["count"] += 1
+
+    dishes = [
+        {
+            "name": n,
+            "qty": e["qty"],
+            "avgSeconds": round(e["total"] / e["count"]) if e["count"] else None,
+        }
+        for n, e in dish.items()
+    ]
+    slowest = sorted([d for d in dishes if d["avgSeconds"]], key=lambda x: -x["avgSeconds"])[:5]
+    top = sorted(dishes, key=lambda x: -x["qty"])[:5]
+
+    return {
+        "hours": hours,
+        "ordersTotal": len(docs),
+        "ordersServed": len(served),
+        "itemsServed": sum(i.get("qty", 1) for d in docs for i in d.get("items", [])),
+        "avgPrepSeconds": round(sum(preps) / len(preps)) if preps else None,
+        "byType": by_type,
+        "byStation": by_station,
+        "slowestDishes": slowest,
+        "topDishes": top,
+        "generatedAt": now_iso(),
+    }
 
 
 @api_router.get("/menu")

@@ -53,6 +53,7 @@ class Order(BaseDocument):
     station: str = "Main Kitchen"
     note: Optional[str] = None
     items: List[OrderItem] = []
+    handoffs: List[dict] = []
     createdAt: str = Field(default_factory=now_iso)
     startedAt: Optional[str] = None
     readyAt: Optional[str] = None
@@ -89,6 +90,23 @@ class ItemDoneUpdate(BaseModel):
 
 class AvailabilityUpdate(BaseModel):
     available: bool
+
+
+class PrintJob(BaseDocument):
+    orderId: str
+    kot: int
+    station: str
+    status: str = "queued"          # queued | printed | failed
+    copies: int = 1
+    lines: List[str] = []
+    createdAt: str = Field(default_factory=now_iso)
+    printedAt: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class StationUpdate(BaseModel):
+    station: str
+    reason: Optional[str] = None
 
 
 class PairRequest(BaseModel):

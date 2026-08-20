@@ -23,6 +23,20 @@ export const clearOrder = (id) => api.delete(`/orders/${id}`).then((r) => r.data
 export const setItemAvailability = (id, available) =>
   api.patch(`/menu/${id}`, { available }).then((r) => r.data);
 
+export const setOrderStation = (id, station, reason) =>
+  api.patch(`/orders/${id}/station`, { station, reason }).then((r) => r.data);
+
+export const printKot = (id, copies = 1) =>
+  api.post(`/print/kot/${id}`, null, { params: { copies } }).then((r) => r.data);
+export const fetchPrintJobs = (limit = 40) =>
+  api.get("/print/jobs", { params: { limit } }).then((r) => r.data);
+export const ackPrintJob = (jobId) => api.post(`/print/jobs/${jobId}/ack`).then((r) => r.data);
+export const retryPrintJob = (jobId) => api.post(`/print/jobs/${jobId}/retry`).then((r) => r.data);
+
+export const fetchRush = () => api.get("/stats/rush").then((r) => r.data);
+export const fetchShift = (hours = 12) =>
+  api.get("/stats/shift", { params: { hours } }).then((r) => r.data);
+
 export const posCreateRandomOrder = (station) =>
   api.post("/pos/orders/random", null, { params: station ? { station } : {} }).then((r) => r.data);
 export const resetDemo = () => api.post("/demo/reset").then((r) => r.data);

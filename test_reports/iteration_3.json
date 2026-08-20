@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 3 e2e testing of BhojPe KDS (Printer wiring, Station Handoff, Shift Summary, Rush Hour). Backend pytest 30/30 PASSED — 17 regression from iter1+2 all still green + 13 new tests covering: POS /api/pos/orders auto-queues print jobs with ticket_lines containing 'BhojPe' / 'KOT / TOKEN <kot>' / station / 'qty x item' lines; /api/pos/orders/random also queues; /api/print/kot/{id} manual reprint sets reason='Manual reprint'; /api/print/jobs?status=queued filter; ack -> status=printed+printedAt; retry -> status=queued+printedAt=None; unknown-id ack/retry/manual returns 404; PATCH /api/orders/{id}/station moves station, appends handoffs entry, auto-queues print with reason 'Handoff X -> Y' at target station; same-station is no-op (no handoff entry); unknown-id 404; /api/stats/rush shape + escalation to 'rush' after ageing >=4 orders via /api/demo/delay; /api/stats/shift shape at ?hours=6|12|24, ordersServed grows after cook->ready, slowestDishes sorted desc, max 5 top/slow dishes; /api/demo/reset clears print_jobs; WS /api/ws broadcasts print.queued on POS order create. Frontend Playwright verified: setup pairing -> KDS, rush-indicator bar under filters showing rush-level/rush-behind, escalates to RUSH HOUR after ageing seeded orders, kot-handoff-btn dropdown moves KOT (Main Kitchen -> Tandoor), kot-handoff-tag shows 'moved from Main Kitchen' and persists after reload, Settings > Printer print-queue shows queued handoff job for KOT 1024 with reason 'Handoff Main Kitchen -> Tandoor', reload-print-jobs-btn works, auto-print-toggle switches, print-job-ack flips status to PRINTED, Shift Summary shift-hours-6/12/24 switch and refetch, shift-orders-served/items-served/avg-prep populated, kot-print-btn triggers no JS error (popup blocked as expected in headless), WS-driven /api/pos/orders/random appears as new-order-alert with KOT 1034 (iteration 2 KOT-gap bug is fixed — first POS after reset is now 1034 not 1035), no horizontal overflow at 375/768/1280/1920.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PrintQueue (KitchenOps.jsx) only loads jobs on mount + manual refresh; it does NOT subscribe to the print.queued WS event, so if the Printer tab is left open a newly created KOT will only appear after clicking Refresh Queue. Consider wiring a WS listener to auto-append/refresh.",
+    "handoff_station() correctly no-ops on same station (no handoff entry, no reprint queued) — good.",
+    "server.py rush_status(): behind = round((sum(ages)/len(ages)) - target); this is 'average age above target' clamped to 0 — a single very old order doesn't dominate the number. UX-fine, but the label 'Behind by X' might be misleading vs 'oldest by X'. Consider showing max(ages)-target instead, or rename to 'Avg behind'.",
+    "shift_summary() computes 'served' as `completed OR readyAt set`; a completed order without readyAt (edge) still counts. Consider standardising to require readyAt.",
+    "_queue_print stores full rendered ticket lines in DB — fine for a mocked printer, but for real print integration you'd re-render at print time to reflect updates (item ticks, priority changes).",
+    "next_kot() KOT gap from iter2 is FIXED: first POS after /demo/reset is 1034 (verified in browser).",
+    "No ObjectId leakage anywhere; PrintJob.from_mongo maps _id -> id cleanly.",
+    "Frontend RushIndicator polls /api/stats/rush every 15s; on mobile it makes the header a bit tall (rush-indicator + filter row), but still no overflow. Acceptable."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (extended with 13 iter-3 tests)"
+  ],
+  "success_rate": {"backend": "100% (30/30)", "frontend": "100% on all tested flows"},
+  "test_credentials": "None. Pre-filled BHP-8F42-K91 / POS-7F42A9.",
+  "seed_data_creation": "POST /api/demo/reset seeds 15 KOTs (1018-1033) + 12 menu items + clears print_jobs. Tests use TEST_ prefix for isolation.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend suite at /app/backend/tests/backend_test.py — `pytest backend/tests/backend_test.py -v` runs 30 tests in ~20s. WS tests require Origin header (already set). Print queue on the Printer tab only reloads on mount + reload-print-jobs-btn — after handoff/POS create wait a beat and click Refresh Queue when asserting new jobs, OR trigger WS listener implementation (see critical code review). New testids: rush-indicator, rush-level, rush-behind, kot-handoff-btn-{kot}, kot-handoff-{kot}-{station-slug}, kot-handoff-tag-{kot}, kot-print-btn-{kot}, settings-tab-printer, settings-tab-shift, print-queue, auto-print-toggle, reload-print-jobs-btn, print-job-{kot}, print-job-send/ack/retry-{kot}, shift-summary, shift-hours-6|12|24, shift-orders-served/items-served/avg-prep, slow-dish-{slug}. Iteration 2 KOT-gap bug is fixed (first POS after reset = 1034).",
+  "rca of the issue": "No new bugs found in iteration 3. Previously reported KOT counter off-by-one (iter2) is resolved — verified 1034 appears immediately after /api/demo/reset + first POS order. Iteration 2 a11y Radix warning about DialogContent description also appears mitigated (Sheet now includes SheetDescription per E1's fix)."
+}

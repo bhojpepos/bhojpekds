@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "@/services/apiService";
 import { connectRealtime } from "@/services/realtime";
+import { printTicket } from "@/services/printService";
 import { seedChef, seedDevices, seedConnection } from "@/services/mockDeviceService";
 import { playAlert } from "@/services/soundService";
 import { NEXT_STATUS, STATUS_ORDER } from "@/services/mockOrderService";
@@ -22,6 +23,7 @@ const DEFAULT_SETTINGS = {
   displayMode: "auto",
   colors: { ...DEFAULT_COLORS },
   stationFilterOn: false,
+  autoPrint: false,
 };
 
 function loadLocal() {
@@ -64,6 +66,8 @@ export function KdsProvider({ children }) {
   const [orders, setOrders] = useState(boot.orders);
   const [menu, setMenu] = useState(boot.menu);
   const [stats, setStats] = useState(null);
+  const [rush, setRush] = useState(null);
+  const [lastPrintJob, setLastPrintJob] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [alert, setAlert] = useState(null);
   const [undoItem, setUndoItem] = useState(null);
@@ -100,10 +104,16 @@ export function KdsProvider({ children }) {
 
   const refresh = useCallback(async () => {
     try {
-      const [o, m, st] = await Promise.all([api.fetchOrders(), api.fetchMenu(), api.fetchPrepStats()]);
+      const [o, m, st, ru] = await Promise.all([
+        api.fetchOrders(),
+        api.fetchMenu(),
+        api.fetchPrepStats(),
+        api.fetchRush(),
+      ]);
       setOrders(o);
       setMenu(m);
       setStats(st);
+      setRush(ru);
       markOnline(true);
       return true;
     } catch {
@@ -114,10 +124,19 @@ export function KdsProvider({ children }) {
 
   const refreshStats = useCallback(async () => {
     try {
-      setStats(await api.fetchPrepStats());
+      const [st, ru] = await Promise.all([api.fetchPrepStats(), api.fetchRush()]);
+      setStats(st);
+      setRush(ru);
     } catch {
       /* offline: keep last stats */
     }
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      api.fetchRush().then(setRush).catch(() => {});
+    }, 15000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
@@ -145,6 +164,12 @@ export function KdsProvider({ children }) {
           setOrders((prev) => prev.filter((o) => o.id !== payload.id));
         } else if (event === "menu.updated") {
           setMenu((prev) => prev.map((m) => (m.id === payload.id ? { ...m, ...payload } : m)));
+        } else if (event === "print.queued") {
+          setLastPrintJob(payload);
+          if (settingsRef.current.autoPrint) {
+            printTicket(payload);
+            api.ackPrintJob(payload.id).catch(() => {});
+          }
         } else if (event === "data.reset") {
           refresh();
         }
@@ -217,6 +242,24 @@ export function KdsProvider({ children }) {
         if (res) patchOrder(id, res);
       },
 
+      handoff: async (id, station) => {
+        patchOrder(id, { station });
+        const res = await call(() => api.setOrderStation(id, station, "Chef handoff"));
+        if (res) patchOrder(id, res);
+        return res;
+      },
+
+      printKot: async (id) => {
+        const job = await call(() => api.printKot(id));
+        if (job) {
+          printTicket(job);
+          api.ackPrintJob(job.id).catch(() => {});
+        }
+        return job;
+      },
+
+      sendToPrinter: (job) => printTicket(job),
+
       toggleItemDone: async (id, index, done) => {
         const order = orders.find((o) => o.id === id);
         if (!order) return;
@@ -279,12 +322,11 @@ export function KdsProvider({ children }) {
       testAlert: fireAlert,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orders, station, undoItem, alert, refresh, refreshStats, fireAlert]
-  );
+    [orders, station, undoItem, alert, refresh, refreshStats, fireAlert]  );
 
-  const state = { paired, station, settings, chef, devices, connection, orders, menu, stats };
+  const state = { paired, station, settings, chef, devices, connection, orders, menu, stats, rush };
 
-  return <Ctx.Provider value={{ state, actions, now, alert, undoItem }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ state, actions, now, alert, undoItem, lastPrintJob }}>{children}</Ctx.Provider>;
 }
 
 export const useKds = () => useContext(Ctx);

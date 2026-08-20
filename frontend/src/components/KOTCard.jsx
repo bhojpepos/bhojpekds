@@ -1,7 +1,9 @@
 import React from "react";
 import { ageOf, ageLevel, useKds } from "@/state/kdsState";
 import { ACTION_LABEL, NEXT_STATUS } from "@/services/mockOrderService";
-import { AlertTriangle, Clock, CheckCircle2, Flame, Bike, ShoppingBag, Utensils, PackageCheck, ChevronUp, Undo2, Check } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle2, Flame, Bike, ShoppingBag, Utensils, PackageCheck, ChevronUp, Undo2, Check, Printer, ArrowRightLeft } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { STATIONS } from "@/services/mockOrderService";
 
 const TYPE_META = {
   "dine-in": { label: "DINE-IN", Icon: Utensils },
@@ -87,6 +89,11 @@ export const KOTCard = ({ order }) => {
             <span className="rounded-md px-2 py-1 k-meta bg-[#2C2C2C] text-white">{order.table || order.refNo}</span>
           )}
           <span className="k-meta opacity-60">{order.station}</span>
+          {order.handoffs?.length > 0 && (
+            <span data-testid={`kot-handoff-tag-${order.kot}`} className="k-meta text-[#2563EB] bg-[#EFF6FF] rounded px-2 py-1">
+              moved from {order.handoffs[order.handoffs.length - 1].from}
+            </span>
+          )}
           {doneCount > 0 && (
             <span data-testid={`kot-progress-${order.kot}`} className="k-meta text-[#047857] bg-[#ECFDF5] rounded px-2 py-1">
               {doneCount}/{order.items.length} done
@@ -164,6 +171,39 @@ export const KOTCard = ({ order }) => {
             className="k-action px-3 rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7] text-[#2C2C2C]"
           >
             <ChevronUp className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="mt-2 flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                data-testid={`kot-handoff-btn-${order.kot}`}
+                className="flex-1 min-h-[44px] rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7] text-xs font-bold flex items-center justify-center gap-1.5"
+              >
+                <ArrowRightLeft className="w-4 h-4" /> MOVE STATION
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-white">
+              <DropdownMenuLabel className="text-xs">Hand off KOT #{order.kot}</DropdownMenuLabel>
+              {STATIONS.filter((s) => s !== order.station).map((s) => (
+                <DropdownMenuItem
+                  key={s}
+                  data-testid={`kot-handoff-${order.kot}-${s.replace(/\s+/g, "-").toLowerCase()}`}
+                  onClick={() => actions.handoff(order.id, s)}
+                >
+                  {s}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            data-testid={`kot-print-btn-${order.kot}`}
+            onClick={() => actions.printKot(order.id)}
+            title="Print ticket"
+            className="min-h-[44px] px-3 rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7]"
+          >
+            <Printer className="w-4 h-4" />
           </button>
         </div>
       </div>
