@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { seedOrders, generateKot, MENU_ITEMS, NEXT_STATUS } from "@/services/mockOrderService";
-import { seedConnection, seedChef, seedDevices } from "@/services/mockDeviceService";
-import { syncToPOS } from "@/services/mockSyncService";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import * as api from "@/services/apiService";
+import { connectRealtime } from "@/services/realtime";
+import { seedChef, seedDevices, seedConnection } from "@/services/mockDeviceService";
 import { playAlert } from "@/services/soundService";
+import { NEXT_STATUS, STATUS_ORDER } from "@/services/mockOrderService";
 
 const KEY = "bhojpe_kds_v1";
 
@@ -13,90 +14,62 @@ export const DEFAULT_COLORS = {
   completed: "#6B7280",
 };
 
-const initialState = () => ({
-  paired: false,
-  connection: seedConnection(),
-  devices: seedDevices(),
-  chef: seedChef(),
-  station: "Main Kitchen",
-  orders: seedOrders(),
-  menu: MENU_ITEMS.map((m) => ({ ...m })),
-  nextKot: 1034,
-  settings: {
-    soundOn: true,
-    volume: 0.9,
-    repeat: 2,
-    alertDuration: 5,
-    displayMode: "auto",
-    colors: { ...DEFAULT_COLORS },
-    stationFilterOn: false,
-  },
-});
+const DEFAULT_SETTINGS = {
+  soundOn: true,
+  volume: 0.9,
+  repeat: 2,
+  alertDuration: 5,
+  displayMode: "auto",
+  colors: { ...DEFAULT_COLORS },
+  stationFilterOn: false,
+};
 
-function load() {
+function loadLocal() {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return initialState();
-    const saved = JSON.parse(raw);
-    const base = initialState();
+    const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
     return {
-      ...base,
-      ...saved,
-      connection: { ...base.connection, ...(saved.connection || {}) },
-      chef: { ...base.chef, ...(saved.chef || {}) },
-      settings: { ...base.settings, ...(saved.settings || {}), colors: { ...DEFAULT_COLORS, ...((saved.settings || {}).colors || {}) } },
+      paired: !!saved.paired,
+      station: saved.station || "Main Kitchen",
+      settings: { ...DEFAULT_SETTINGS, ...(saved.settings || {}), colors: { ...DEFAULT_COLORS, ...((saved.settings || {}).colors || {}) } },
+      chef: { ...seedChef(), ...(saved.chef || {}) },
+      devices: saved.devices || seedDevices(),
+      orders: saved.orders || [],
+      menu: saved.menu || [],
+      connection: { ...seedConnection(), ...(saved.connection || {}) },
     };
   } catch {
-    return initialState();
-  }
-}
-
-function reducer(state, a) {
-  switch (a.type) {
-    case "patch":
-      return { ...state, ...a.payload };
-    case "settings":
-      return { ...state, settings: { ...state.settings, ...a.payload } };
-    case "colors":
-      return { ...state, settings: { ...state.settings, colors: { ...state.settings.colors, ...a.payload } } };
-    case "connection":
-      return { ...state, connection: { ...state.connection, ...a.payload } };
-    case "advance": {
-      const orders = state.orders.map((o) => {
-        if (o.id !== a.id) return o;
-        const next = NEXT_STATUS[o.status];
-        return next ? { ...o, status: next, statusAt: Date.now() } : o;
-      });
-      return { ...state, orders };
-    }
-    case "priority":
-      return { ...state, orders: state.orders.map((o) => (o.id === a.id ? { ...o, priority: a.priority } : o)) };
-    case "removeOrder":
-      return { ...state, orders: state.orders.filter((o) => o.id !== a.id) };
-    case "addOrder":
-      return { ...state, orders: [a.order, ...state.orders], nextKot: state.nextKot + 1 };
-    case "menu":
-      return { ...state, menu: state.menu.map((m) => (m.id === a.id ? { ...m, available: a.available } : m)) };
-    case "device":
-      return {
-        ...state,
-        devices: state.devices.map((d) => (d.id === a.id ? { ...d, connected: a.connected } : d)),
-      };
-    case "reset":
-      return { ...initialState(), paired: state.paired, station: state.station };
-    default:
-      return state;
+    return {
+      paired: false,
+      station: "Main Kitchen",
+      settings: DEFAULT_SETTINGS,
+      chef: seedChef(),
+      devices: seedDevices(),
+      orders: [],
+      menu: [],
+      connection: seedConnection(),
+    };
   }
 }
 
 const Ctx = createContext(null);
 
 export function KdsProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, undefined, load);
+  const boot = useRef(loadLocal()).current;
+  const [paired, setPaired] = useState(boot.paired);
+  const [station, setStationState] = useState(boot.station);
+  const [settings, setSettingsState] = useState(boot.settings);
+  const [chef] = useState(boot.chef);
+  const [devices, setDevices] = useState(boot.devices);
+  const [connection, setConnectionState] = useState(boot.connection);
+  const [orders, setOrders] = useState(boot.orders);
+  const [menu, setMenu] = useState(boot.menu);
+  const [stats, setStats] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [alert, setAlert] = useState(null);
-  const [lastSynced, setLastSynced] = useState(null);
+  const [undoItem, setUndoItem] = useState(null);
   const alertTimer = useRef(null);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -104,83 +77,221 @@ export function KdsProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(KEY, JSON.stringify(state));
-  }, [state]);
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ paired, station, settings, chef, devices, connection, orders, menu })
+    );
+  }, [paired, station, settings, chef, devices, connection, orders, menu]);
 
-  const fireAlert = (order) => {
+  const markOnline = (ok) =>
+    setConnectionState((c) =>
+      c.serverConnected === ok && c.internet === ok && c.posConnected === ok
+        ? c
+        : { ...c, serverConnected: ok, internet: ok, posConnected: ok, lastSync: ok ? "Just now" : c.lastSync }
+    );
+
+  const fireAlert = useCallback((order) => {
     setAlert(order);
-    if (state.settings.soundOn) playAlert({ volume: state.settings.volume, repeat: state.settings.repeat });
+    const s = settingsRef.current;
+    if (s.soundOn) playAlert({ volume: s.volume, repeat: s.repeat });
     clearTimeout(alertTimer.current);
-    alertTimer.current = setTimeout(() => setAlert(null), (state.settings.alertDuration || 5) * 1000);
+    alertTimer.current = setTimeout(() => setAlert(null), (s.alertDuration || 5) * 1000);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [o, m, st] = await Promise.all([api.fetchOrders(), api.fetchMenu(), api.fetchPrepStats()]);
+      setOrders(o);
+      setMenu(m);
+      setStats(st);
+      markOnline(true);
+      return true;
+    } catch {
+      markOnline(false);
+      return false;
+    }
+  }, []);
+
+  const refreshStats = useCallback(async () => {
+    try {
+      setStats(await api.fetchPrepStats());
+    } catch {
+      /* offline: keep last stats */
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const poll = setInterval(refresh, 20000);
+    return () => clearInterval(poll);
+  }, [refresh]);
+
+  // live order feed
+  useEffect(() => {
+    return connectRealtime({
+      onStatus: (ok) => {
+        if (ok) markOnline(true);
+        setConnectionState((c) => ({ ...c, realtime: ok }));
+      },
+      onEvent: (event, payload) => {
+        if (event === "order.created") {
+          setOrders((prev) => (prev.some((o) => o.id === payload.id) ? prev : [payload, ...prev]));
+          fireAlert(payload);
+          refreshStats();
+        } else if (event === "order.updated") {
+          setOrders((prev) => prev.map((o) => (o.id === payload.id ? payload : o)));
+          refreshStats();
+        } else if (event === "order.removed") {
+          setOrders((prev) => prev.filter((o) => o.id !== payload.id));
+        } else if (event === "menu.updated") {
+          setMenu((prev) => prev.map((m) => (m.id === payload.id ? { ...m, ...payload } : m)));
+        } else if (event === "data.reset") {
+          refresh();
+        }
+      },
+    });
+  }, [fireAlert, refresh, refreshStats]);
+
+  const patchOrder = (id, patch) =>
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+
+  const call = async (fn) => {
+    try {
+      const res = await fn();
+      markOnline(true);
+      return res;
+    } catch {
+      markOnline(false);
+      return null;
+    }
   };
 
   const actions = useMemo(
     () => ({
-      setPaired: (v) => dispatch({ type: "patch", payload: { paired: v } }),
-      setStation: (station) => dispatch({ type: "patch", payload: { station } }),
-      setSettings: (p) => dispatch({ type: "settings", payload: p }),
-      setColors: (p) => dispatch({ type: "colors", payload: p }),
-      resetColors: () => dispatch({ type: "colors", payload: { ...DEFAULT_COLORS } }),
-      setConnection: (p) => dispatch({ type: "connection", payload: p }),
-      advance: (id) => dispatch({ type: "advance", id }),
-      removeOrder: (id) => dispatch({ type: "removeOrder", id }),
-      setPriority: (id, priority) => dispatch({ type: "priority", id, priority }),
-      toggleDevice: (id, connected) => {
-        dispatch({ type: "device", id, connected });
-        if (id === "pos") dispatch({ type: "connection", payload: { posConnected: connected } });
-        if (id === "token") dispatch({ type: "connection", payload: { tokenScreenConnected: connected } });
-        if (id === "printer") dispatch({ type: "connection", payload: { printerConnected: connected } });
+      setPaired,
+      setStation: setStationState,
+      setSettings: (p) => setSettingsState((s) => ({ ...s, ...p })),
+      setColors: (p) => setSettingsState((s) => ({ ...s, colors: { ...s.colors, ...p } })),
+      resetColors: () => setSettingsState((s) => ({ ...s, colors: { ...DEFAULT_COLORS } })),
+      setConnection: (p) => setConnectionState((c) => ({ ...c, ...p })),
+      refresh,
+      refreshStats,
+
+      advance: async (id) => {
+        const order = orders.find((o) => o.id === id);
+        if (!order) return;
+        const next = NEXT_STATUS[order.status];
+        if (!next) return;
+        patchOrder(id, { status: next });
+        setUndoItem({ id, kot: order.kot, from: order.status, to: next, at: Date.now() });
+        const res = await call(() => api.setOrderStatus(id, next));
+        if (res) patchOrder(id, res);
       },
+
+      recall: async (id) => {
+        const order = orders.find((o) => o.id === id);
+        if (!order) return;
+        const idx = STATUS_ORDER.indexOf(order.status);
+        if (idx <= 0) return;
+        const prev = STATUS_ORDER[idx - 1];
+        patchOrder(id, { status: prev });
+        const res = await call(() => api.setOrderStatus(id, prev));
+        if (res) patchOrder(id, res);
+      },
+
+      undoLast: async () => {
+        if (!undoItem) return null;
+        const { id, from } = undoItem;
+        patchOrder(id, { status: from });
+        const res = await call(() => api.setOrderStatus(id, from));
+        if (res) patchOrder(id, res);
+        const done = undoItem;
+        setUndoItem(null);
+        return done;
+      },
+      clearUndo: () => setUndoItem(null),
+
+      setPriority: async (id, priority) => {
+        patchOrder(id, { priority });
+        const res = await call(() => api.setOrderPriority(id, priority));
+        if (res) patchOrder(id, res);
+      },
+
+      toggleItemDone: async (id, index, done) => {
+        const order = orders.find((o) => o.id === id);
+        if (!order) return;
+        patchOrder(id, { items: order.items.map((i, x) => (x === index ? { ...i, done } : i)) });
+        const res = await call(() => api.setItemDone(id, index, done));
+        if (res) patchOrder(id, res);
+      },
+
+      removeOrder: async (id) => {
+        setOrders((prev) => prev.filter((o) => o.id !== id));
+        await call(() => api.clearOrder(id));
+      },
+
       setItemAvailability: async (id, available) => {
-        dispatch({ type: "menu", id, available });
-        const res = await syncToPOS({ itemId: id, available });
-        setLastSynced({ id, at: res.syncedAt });
+        setMenu((prev) => prev.map((m) => (m.id === id ? { ...m, available } : m)));
+        return call(() => api.setItemAvailability(id, available));
+      },
+
+      newKot: async (st) => {
+        const res = await call(() => api.posCreateRandomOrder(st || station));
+        if (res) {
+          setOrders((prev) => (prev.some((o) => o.id === res.id) ? prev : [res, ...prev]));
+          if (!alert) fireAlert(res);
+        }
         return res;
       },
-      newKot: (station) => {
-        const o = generateKot(state.nextKot, station || state.station);
-        dispatch({ type: "addOrder", order: o });
-        fireAlert(o);
-        return o;
-      },
-      markRandomReady: () => {
-        const cand = state.orders.filter((o) => o.status === "cooking");
+
+      markRandomReady: async () => {
+        const cand = orders.filter((o) => o.status === "cooking");
         if (!cand.length) return null;
         const o = cand[Math.floor(Math.random() * cand.length)];
-        dispatch({ type: "advance", id: o.id });
+        patchOrder(o.id, { status: "ready" });
+        const res = await call(() => api.setOrderStatus(o.id, "ready"));
+        if (res) patchOrder(o.id, res);
         return o;
       },
-      simulateDelayed: () => {
-        const cand = state.orders.filter((o) => o.status === "new" || o.status === "cooking");
+
+      simulateDelayed: async () => {
+        const cand = orders.filter((o) => o.status === "new" || o.status === "cooking");
         if (!cand.length) return null;
         const o = cand[Math.floor(Math.random() * cand.length)];
-        dispatch({
-          type: "patch",
-          payload: {
-            orders: state.orders.map((x) =>
-              x.id === o.id ? { ...x, createdAt: Date.now() - 16 * 60 * 1000, priority: "urgent" } : x
-            ),
-          },
-        });
+        const res = await call(() => api.delayOrder(o.id));
+        if (res) patchOrder(o.id, res);
         return o;
       },
-      resetDemo: () => dispatch({ type: "reset" }),
+
+      resetDemo: async () => {
+        await call(() => api.resetDemo());
+        await refresh();
+      },
+
+      toggleDevice: (id, connected) => {
+        setDevices((prev) => prev.map((d) => (d.id === id ? { ...d, connected } : d)));
+        if (id === "pos") setConnectionState((c) => ({ ...c, posConnected: connected }));
+        if (id === "token") setConnectionState((c) => ({ ...c, tokenScreenConnected: connected }));
+        if (id === "printer") setConnectionState((c) => ({ ...c, printerConnected: connected }));
+      },
+
       dismissAlert: () => setAlert(null),
       testAlert: fireAlert,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state]
+    [orders, station, undoItem, alert, refresh, refreshStats, fireAlert]
   );
 
-  return (
-    <Ctx.Provider value={{ state, actions, now, alert, lastSynced }}>{children}</Ctx.Provider>
-  );
+  const state = { paired, station, settings, chef, devices, connection, orders, menu, stats };
+
+  return <Ctx.Provider value={{ state, actions, now, alert, undoItem }}>{children}</Ctx.Provider>;
 }
 
 export const useKds = () => useContext(Ctx);
 
 export function ageOf(order, now) {
-  const s = Math.max(0, Math.floor((now - order.createdAt) / 1000));
+  const created = typeof order.createdAt === "number" ? order.createdAt : Date.parse(order.createdAt);
+  const s = Math.max(0, Math.floor((now - created) / 1000));
   const mm = String(Math.floor(s / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return { seconds: s, text: `${mm}:${ss}` };
@@ -190,4 +301,11 @@ export function ageLevel(seconds) {
   if (seconds < 300) return "fresh";
   if (seconds < 600) return "warning";
   return "delayed";
+}
+
+export function formatDuration(seconds) {
+  if (seconds == null) return "—";
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return m ? `${m}m ${String(s).padStart(2, "0")}s` : `${s}s`;
 }

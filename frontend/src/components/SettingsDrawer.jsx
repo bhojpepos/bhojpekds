@@ -1,5 +1,5 @@
 import React from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { useKds, DEFAULT_COLORS } from "@/state/kdsState";
@@ -9,10 +9,11 @@ import { ConnectionStatus, StatusLine, Dot } from "@/components/ConnectionStatus
 import { DeviceCard } from "@/components/DeviceCard";
 import { ItemAvailability } from "@/components/ItemAvailability";
 import { TokenScreenPreview } from "@/components/TokenScreenPreview";
+import { PrepInsights } from "@/components/PrepInsights";
 import { playTestBeep } from "@/services/soundService";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Plus } from "lucide-react";
+import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Plus, Timer } from "lucide-react";
 
 const TABS = [
   { id: "connection", label: "Connection", Icon: Plug },
@@ -24,6 +25,7 @@ const TABS = [
   { id: "colors", label: "Colors", Icon: Palette },
   { id: "items", label: "Items", Icon: Package },
   { id: "token", label: "Token Screen", Icon: Tv },
+  { id: "insights", label: "Prep Insights", Icon: Timer },
   { id: "notifications", label: "Notifications", Icon: Bell },
   { id: "demo", label: "Demo Controls", Icon: Beaker },
 ];
@@ -160,7 +162,7 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
               <Slider data-testid="duration-slider" value={[s.alertDuration]} min={2} max={15} step={1} onValueChange={([v]) => actions.setSettings({ alertDuration: v })} />
             </div>
             <Btn testId="test-sound-btn" onClick={() => playTestBeep(s.volume)}>Test Sound</Btn>
-            <Btn testId="simulate-kot-btn" variant="primary" onClick={() => { const o = actions.newKot(); toast.success(`KOT #${o.kot} received`); }}>
+            <Btn testId="simulate-kot-btn" variant="primary" onClick={async () => { const o = await actions.newKot(); toast[o ? "success" : "error"](o ? `KOT #${o.kot} received` : "Server unreachable"); }}>
               Simulate New KOT
             </Btn>
           </div>
@@ -217,6 +219,8 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
         );
       case "items":
         return <ItemAvailability />;
+      case "insights":
+        return <PrepInsights />;
       case "token":
         return (
           <div className="space-y-3">
@@ -233,9 +237,9 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
       case "demo":
         return (
           <div className="space-y-3">
-            <Btn testId="demo-generate-kot" variant="primary" onClick={() => { const o = actions.newKot(); toast.success(`KOT #${o.kot} created`); }}>Generate New KOT</Btn>
-            <Btn testId="demo-random-ready" onClick={() => { const o = actions.markRandomReady(); toast[o ? "success" : "info"](o ? `KOT #${o.kot} marked ready` : "No cooking orders"); }}>Mark Random Order Ready</Btn>
-            <Btn testId="demo-delayed" onClick={() => { const o = actions.simulateDelayed(); toast[o ? "warning" : "info"](o ? `KOT #${o.kot} is now delayed` : "No active orders"); }}>Simulate Delayed Order</Btn>
+            <Btn testId="demo-generate-kot" variant="primary" onClick={async () => { const o = await actions.newKot(); toast[o ? "success" : "error"](o ? `KOT #${o.kot} created` : "Server unreachable"); }}>Generate New KOT</Btn>
+            <Btn testId="demo-random-ready" onClick={async () => { const o = await actions.markRandomReady(); toast[o ? "success" : "info"](o ? `KOT #${o.kot} marked ready` : "No cooking orders"); }}>Mark Random Order Ready</Btn>
+            <Btn testId="demo-delayed" onClick={async () => { const o = await actions.simulateDelayed(); toast[o ? "warning" : "info"](o ? `KOT #${o.kot} is now delayed` : "No active orders"); }}>Simulate Delayed Order</Btn>
             <Btn testId="demo-toggle-internet" onClick={() => actions.setConnection({ internet: !state.connection.internet, serverConnected: !state.connection.internet })}>
               Toggle Internet · {state.connection.internet ? "ON" : "OFF"}
             </Btn>
@@ -248,7 +252,7 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
             <Btn testId="demo-toggle-token" onClick={() => actions.toggleDevice("token", !state.connection.tokenScreenConnected)}>
               Toggle Token Screen · {state.connection.tokenScreenConnected ? "ON" : "OFF"}
             </Btn>
-            <Btn testId="demo-reset" variant="danger" onClick={() => { actions.resetDemo(); toast.success("Demo data reset"); }}>Reset Demo Data</Btn>
+            <Btn testId="demo-reset" variant="danger" onClick={async () => { await actions.resetDemo(); toast.success("Demo data reset"); }}>Reset Demo Data</Btn>
             <Btn testId="settings-logout-btn" variant="danger" onClick={() => { actions.setPaired(false); navigate("/setup"); }}>
               <span className="flex items-center justify-center gap-2"><LogOut className="w-4 h-4" /> Logout</span>
             </Btn>
@@ -265,6 +269,9 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
       <SheetContent side="right" className="bg-[#F7F7F7] w-full sm:max-w-[560px] p-0 flex flex-col" data-testid="settings-drawer">
         <SheetHeader className="px-4 py-3 bg-white border-b border-[#E5E7EB]">
           <SheetTitle className="font-head font-extrabold">Settings</SheetTitle>
+          <SheetDescription className="sr-only">
+            Configure connection, devices, station, sound, display, colors, items and demo controls.
+          </SheetDescription>
         </SheetHeader>
         <div className="flex gap-2 overflow-x-auto thin-scroll px-3 py-2 bg-white border-b border-[#E5E7EB] shrink-0">
           {TABS.map((t) => (

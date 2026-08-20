@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useKds } from "@/state/kdsState";
-import { DEMO_POS_CODE, DEMO_SYNC_CODE, pairDevice } from "@/services/mockDeviceService";
+import { DEMO_POS_CODE, DEMO_SYNC_CODE } from "@/services/mockDeviceService";
+import * as api from "@/services/apiService";
 import { STATIONS } from "@/services/mockOrderService";
 import { ConnectionStatus, Dot } from "@/components/ConnectionStatus";
 import { unlockAudio, playTestBeep } from "@/services/soundService";
@@ -36,22 +37,39 @@ export default function Setup() {
     if (!syncCode.trim()) return toast.error("Enter a Server Sync Code");
     unlockAudio();
     setBusy("server");
-    await pairDevice(syncCode);
+    try {
+      const res = await api.pair(syncCode, null);
+      actions.setConnection({
+        serverConnected: true,
+        internet: true,
+        lastSync: "Just now",
+        deviceId: res.deviceId,
+        restaurant: res.restaurant,
+        branch: res.branch,
+        server: res.server,
+      });
+      setServerOk(true);
+      toast.success(`Connected to ${res.server}`);
+    } catch {
+      actions.setConnection({ serverConnected: false });
+      toast.error("Server unreachable — KDS will run in Local Mode");
+    }
     setBusy(null);
-    setServerOk(true);
-    actions.setConnection({ serverConnected: true, internet: true, lastSync: "Just now" });
-    toast.success("Connected to Demo Server");
   };
 
   const pairPos = async () => {
     if (!posCode.trim()) return toast.error("Enter a POS Pair Code");
     unlockAudio();
     setBusy("pos");
-    await pairDevice(posCode);
+    try {
+      await api.pair(null, posCode);
+      setPosOk(true);
+      actions.setConnection({ posConnected: true });
+      toast.success("POS paired successfully");
+    } catch {
+      toast.error("POS pairing failed — check the pair code");
+    }
     setBusy(null);
-    setPosOk(true);
-    actions.setConnection({ posConnected: true });
-    toast.success("POS paired successfully");
   };
 
   const enter = () => {
@@ -96,7 +114,7 @@ export default function Setup() {
             <div className="grid sm:grid-cols-3 gap-3 mt-4">
               <div className="bg-[#F7F7F7] rounded-md p-3">
                 <div className="text-[11px] uppercase tracking-widest opacity-55 font-bold">Connected Server</div>
-                <div className="text-sm font-bold flex items-center gap-1.5 mt-1"><Dot ok={serverOk || state.connection.serverConnected} /> Demo Server</div>
+                <div className="text-sm font-bold flex items-center gap-1.5 mt-1"><Dot ok={serverOk || state.connection.serverConnected} /> {state.connection.server}</div>
               </div>
               <div className="bg-[#F7F7F7] rounded-md p-3">
                 <div className="text-[11px] uppercase tracking-widest opacity-55 font-bold">Restaurant</div>

@@ -12,16 +12,17 @@ export const seedDevices = () => [
 ];
 
 export const seedConnection = () => ({
-  serverConnected: true,
-  posConnected: true,
+  serverConnected: false,
+  posConnected: false,
   tokenScreenConnected: true,
   printerConnected: true,
   internet: true,
-  lastSync: "Just now",
+  realtime: false,
+  lastSync: "—",
   deviceId: "KDS-7F42A9",
   restaurant: "BhojPe Cafe",
   branch: "Main Branch",
-  server: "Demo Server",
+  server: "BhojPe Server",
 });
 
 export const seedChef = () => ({

@@ -7,6 +7,7 @@ import { FilterBar } from "@/components/FilterBar";
 import { StatusColumn } from "@/components/StatusColumn";
 import { NewOrderAlert } from "@/components/NewOrderAlert";
 import { SettingsDrawer } from "@/components/SettingsDrawer";
+import { UndoBar } from "@/components/UndoBar";
 import { WifiOff } from "lucide-react";
 
 export default function KDS() {
@@ -102,6 +103,7 @@ export default function KDS() {
       </main>
 
       <NewOrderAlert />
+      <UndoBar />
       <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} tab={tab} setTab={setTab} />
     </div>
   );
