@@ -72,6 +72,7 @@ export function KdsProvider({ children }) {
   const [lastPrintJob, setLastPrintJob] = useState(null);
   const [config, setConfig] = useState(null);
   const [overdueAlert, setOverdueAlert] = useState(null);
+  const [lastAudit, setLastAudit] = useState(null);
   const alertedOverdue = useRef(new Set());
   const [now, setNow] = useState(Date.now());
   const [alert, setAlert] = useState(null);
@@ -176,6 +177,8 @@ export function KdsProvider({ children }) {
             printTicket(payload);
             api.ackPrintJob(payload.id).catch(() => {});
           }
+        } else if (event === "audit.logged") {
+          setLastAudit(payload);
         } else if (event === "data.reset") {
           refresh();
         }
@@ -196,6 +199,10 @@ export function KdsProvider({ children }) {
       return null;
     }
   };
+
+  useEffect(() => {
+    api.setActor(`${chef.name} (${station})`);
+  }, [chef.name, station]);
 
   // Delay alerts: shout once when an order crosses its promised time
   useEffect(() => {
@@ -356,7 +363,7 @@ export function KdsProvider({ children }) {
 
   const state = { paired, station, settings, chef, devices, connection, orders, menu, stats, rush, config };
 
-  return <Ctx.Provider value={{ state, actions, now, alert, undoItem, lastPrintJob, overdueAlert }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ state, actions, now, alert, undoItem, lastPrintJob, overdueAlert, lastAudit }}>{children}</Ctx.Provider>;
 }
 
 export const useKds = () => useContext(Ctx);

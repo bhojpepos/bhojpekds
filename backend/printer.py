@@ -27,6 +27,22 @@ def build_escpos(lines: List[str], copies: int = 1) -> bytes:
     return bytes(out)
 
 
+async def probe_printer(host: str, port: int, timeout: float = 4.0) -> Optional[str]:
+    """TCP reachability probe without sending any print data."""
+    try:
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
+        writer.close()
+        try:
+            await asyncio.wait_for(writer.wait_closed(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass
+        return None
+    except asyncio.TimeoutError:
+        return f"No response from {host}:{port}"
+    except OSError as e:
+        return f"{host}:{port} unreachable ({e.__class__.__name__})"
+
+
 async def send_to_printer(host: str, port: int, payload: bytes, timeout: float = 5.0) -> Optional[str]:
     """Returns None on success, or an error string."""
     try:

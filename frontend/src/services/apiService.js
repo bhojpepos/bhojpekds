@@ -4,6 +4,21 @@ const BASE = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const api = axios.create({ baseURL: BASE, timeout: 12000 });
 
+let actorName = "Kitchen Device";
+export const setActor = (name) => {
+  actorName = name || "Kitchen Device";
+};
+api.interceptors.request.use((cfg) => {
+  cfg.headers["X-Actor"] = actorName;
+  return cfg;
+});
+
+export const fetchOrderEvents = (id) => api.get(`/orders/${id}/events`).then((r) => r.data);
+export const fetchAudit = (limit = 100) => api.get("/audit", { params: { limit } }).then((r) => r.data);
+export const fetchWeekly = () => api.get("/stats/weekly").then((r) => r.data);
+export const fetchPrinterStatus = () => api.get("/printer/status").then((r) => r.data);
+export const sendTestEmail = () => api.post("/reports/test-email").then((r) => r.data);
+
 export const wsUrl = () =>
   `${process.env.REACT_APP_BACKEND_URL.replace(/^http/, "ws")}/api/ws`;
 

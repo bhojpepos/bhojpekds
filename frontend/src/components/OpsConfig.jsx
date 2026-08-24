@@ -25,11 +25,21 @@ export const PrinterConfig = () => {
   const cfg = state.config;
   const [host, setHost] = useState("");
   const [port, setPort] = useState("9100");
+  const [status, setStatus] = useState(null);
+
+  const checkStatus = async () => {
+    try {
+      setStatus(await api.fetchPrinterStatus());
+    } catch {
+      setStatus(null);
+    }
+  };
 
   useEffect(() => {
     if (cfg) {
       setHost(cfg.printerHost || "");
       setPort(String(cfg.printerPort || 9100));
+      checkStatus();
     }
   }, [cfg]);
 
@@ -55,13 +65,43 @@ export const PrinterConfig = () => {
       <button
         data-testid="save-printer-btn"
         onClick={async () => {
-          await actions.saveConfig({ printerHost: host.trim(), printerPort: Number(port) || 9100 });
+          const h = host.trim();
+          if (!h) return toast.error("Enter your printer's IP address");
+          await actions.saveConfig({ printerHost: h, printerPort: Number(port) || 9100 });
           toast.success("Printer settings saved");
+          checkStatus();
         }}
         className="w-full min-h-[48px] rounded-md bg-[#FF3131] text-white text-sm font-bold"
       >
         SAVE PRINTER
       </button>
+      <button
+        data-testid="check-printer-btn"
+        onClick={async () => {
+          await checkStatus();
+          toast.info("Printer status refreshed");
+        }}
+        className="w-full min-h-[48px] rounded-md border border-[#E5E7EB] bg-white text-sm font-bold"
+      >
+        CHECK CONNECTION
+      </button>
+      {status && (
+        <div
+          data-testid="printer-status"
+          className="rounded-md p-3 text-sm font-semibold"
+          style={{
+            background: status.reachable ? "#ECFDF5" : "#FEF2F2",
+            color: status.reachable ? "#047857" : "#DC2626",
+          }}
+        >
+          {status.reachable
+            ? `Printer live at ${status.host}:${status.port}${status.enabled ? "" : " — switch it on above to start printing"}`
+            : status.error || "Printer not reachable"}
+          {status.pendingJobs > 0 && (
+            <div className="text-xs font-medium mt-1 opacity-80">{status.pendingJobs} ticket(s) waiting in the queue</div>
+          )}
+        </div>
+      )}
       <button
         data-testid="test-printer-btn"
         onClick={async () => {
@@ -106,17 +146,40 @@ export const RecapConfig = () => {
         <div className="text-xs opacity-55 mt-1">
           Emailed automatically at 23:30 IST when the kitchen closes.
         </div>
+        <div
+          data-testid="recap-live-status"
+          className="text-xs font-bold mt-2"
+          style={{ color: cfg?.recapEmail ? "#047857" : "#B45309" }}
+        >
+          {cfg?.recapEmail ? `Live — going to ${cfg.recapEmail}` : "Not live yet — add an address below"}
+        </div>
       </div>
       <Input label="Head Chef Email" value={email} onChange={setEmail} placeholder="chef@restaurant.com" testId="recap-email-input" type="email" />
       <button
         data-testid="save-recap-email-btn"
         onClick={async () => {
-          await actions.saveConfig({ recapEmail: email.trim() });
+          const v = email.trim();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return toast.error("Enter a valid email address");
+          await actions.saveConfig({ recapEmail: v });
           toast.success("Recap recipient saved");
         }}
         className="w-full min-h-[48px] rounded-md bg-[#FF3131] text-white text-sm font-bold"
       >
         SAVE RECIPIENT
+      </button>
+      <button
+        data-testid="send-test-email-btn"
+        onClick={async () => {
+          try {
+            const res = await api.sendTestEmail();
+            res.ok ? toast.success(`Test email sent to ${res.to}`) : toast.error(res.reason || "Save a recipient first");
+          } catch {
+            toast.error("Could not send the test email");
+          }
+        }}
+        className="w-full min-h-[48px] rounded-md border border-[#E5E7EB] bg-white text-sm font-bold"
+      >
+        SEND TEST EMAIL
       </button>
       <button
         data-testid="send-recap-now-btn"

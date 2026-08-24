@@ -12,10 +12,11 @@ import { TokenScreenPreview } from "@/components/TokenScreenPreview";
 import { PrepInsights } from "@/components/PrepInsights";
 import { PrintQueue, ShiftSummary } from "@/components/KitchenOps";
 import { PrinterConfig, RecapConfig, DelayAlertConfig } from "@/components/OpsConfig";
+import { AuditTrail, WeeklyTrends } from "@/components/Analytics";
 import { playTestBeep } from "@/services/soundService";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Plus, Timer, Printer, ClipboardList, Mail } from "lucide-react";
+import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Plus, Timer, Printer, ClipboardList, Mail, TrendingUp, History } from "lucide-react";
 
 const TABS = [
   { id: "connection", label: "Connection", Icon: Plug },
@@ -31,6 +32,8 @@ const TABS = [
   { id: "printer", label: "Printer", Icon: Printer },
   { id: "shift", label: "Shift Summary", Icon: ClipboardList },
   { id: "recap", label: "Email Recap", Icon: Mail },
+  { id: "weekly", label: "Weekly Trends", Icon: TrendingUp },
+  { id: "audit", label: "Audit Trail", Icon: History },
   { id: "stations", label: "Station Screens", Icon: MonitorSmartphone },
   { id: "notifications", label: "Notifications", Icon: Bell },
   { id: "demo", label: "Demo Controls", Icon: Beaker },
@@ -241,6 +244,10 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
         return <ShiftSummary />;
       case "recap":
         return <RecapConfig />;
+      case "weekly":
+        return <WeeklyTrends />;
+      case "audit":
+        return <AuditTrail />;
       case "stations":
         return (
           <div className="space-y-3">

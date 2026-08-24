@@ -29,7 +29,7 @@ from models import (
     StatusUpdate,
     now_iso,
 )
-from printer import build_escpos, send_to_printer
+from printer import build_escpos, probe_printer, send_to_printer
 from email_service import send_email, shift_recap_html
 
 ROOT_DIR = Path(__file__).parent
@@ -103,7 +103,7 @@ async def next_kot() -> int:
 
 # ---------------- seed ----------------
 def seed_orders_payload():
-    def o(kot, typ, status, age_min, station, items, table=None, refNo=None, priority="normal", note=None):
+    def o(kot, typ, status, age_min, station, items, table=None, refNo=None, priority="normal", note=None, prep_min=None):
         created = datetime.now(timezone.utc).timestamp() - age_min * 60
         started = None
         ready = None
@@ -111,9 +111,9 @@ def seed_orders_payload():
         if status in ("cooking", "ready", "completed"):
             started = created + 60
         if status in ("ready", "completed"):
-            ready = created + age_min * 30
+            ready = started + prep_min * 60 if prep_min else created + age_min * 30
         if status == "completed":
-            completed = created + age_min * 45
+            completed = (ready + 120) if prep_min else created + age_min * 45
         iso = lambda t: datetime.fromtimestamp(t, timezone.utc).isoformat() if t else None
         return Order(
             kot=kot, type=typ, table=table, refNo=refNo, status=status, priority=priority,
@@ -146,6 +146,14 @@ def seed_orders_payload():
         o(1031, "dine-in", "completed", 25.0, "Main Kitchen", [{"qty": 1, "name": "Veg Burger"}], table="Table 15"),
         o(1032, "pickup", "completed", 28.3, "Bar", [{"qty": 3, "name": "Cold Coffee"}], refNo="#P81"),
         o(1033, "dine-in", "new", 0.2, "Main Kitchen", [{"qty": 1, "name": "Masala Dosa"}, {"qty": 1, "name": "Cold Coffee"}], table="Table 6"),
+        # ---- last week (for week-over-week trends) ----
+        o(990, "dine-in", "completed", 8 * 1440, "Tandoor", [{"qty": 2, "name": "Paneer Tikka"}, {"qty": 2, "name": "Butter Naan"}], table="Table 3", prep_min=6),
+        o(991, "takeaway", "completed", 8 * 1440 + 90, "Main Kitchen", [{"qty": 1, "name": "Dal Makhani"}, {"qty": 2, "name": "Tandoori Roti"}], prep_min=9),
+        o(992, "delivery", "completed", 9 * 1440, "Chinese", [{"qty": 2, "name": "Veg Hakka Noodles"}, {"qty": 1, "name": "Manchurian"}], refNo="#D090", prep_min=7),
+        o(993, "dine-in", "completed", 9 * 1440 + 200, "Pizza", [{"qty": 2, "name": "Farmhouse Pizza"}], table="Table 8", prep_min=14),
+        o(994, "takeaway", "completed", 10 * 1440, "Main Kitchen", [{"qty": 2, "name": "Masala Dosa"}, {"qty": 1, "name": "Cold Coffee"}], prep_min=5),
+        o(995, "pickup", "completed", 10 * 1440 + 300, "Main Kitchen", [{"qty": 2, "name": "Veg Burger"}, {"qty": 3, "name": "French Fries"}], refNo="#P40", prep_min=8),
+        o(996, "dine-in", "completed", 11 * 1440, "Tandoor", [{"qty": 3, "name": "Butter Naan"}, {"qty": 1, "name": "Dal Makhani"}], table="Table 1", prep_min=10),
     ]
 
 
@@ -155,6 +163,7 @@ async def seed(force: bool = False):
         await db.menu.delete_many({})
         await db.counters.delete_many({})
         await db.print_jobs.delete_many({})
+        await db.order_events.delete_many({})
     if await db.orders.count_documents({}) == 0:
         await db.orders.insert_many(seed_orders_payload())
         await db.counters.update_one({"_id": "kot"}, {"$set": {"seq": 10}}, upsert=True)
@@ -252,6 +261,30 @@ def ticket_lines(order: dict) -> List[str]:
     return lines
 
 
+ACTION_LABELS = {
+    "cooking": "started cooking",
+    "ready": "marked ready",
+    "completed": "completed order",
+    "new": "recalled to new",
+}
+
+
+async def log_event(order: dict, action: str, actor: Optional[str], detail: Optional[str] = None):
+    entry = {
+        "orderId": order["id"],
+        "kot": order["kot"],
+        "action": action,
+        "detail": detail,
+        "actor": (actor or "Kitchen Device").strip()[:60],
+        "station": order.get("station"),
+        "at": now_iso(),
+    }
+    res = await db.order_events.insert_one(dict(entry))
+    entry["id"] = str(res.inserted_id)
+    await hub.broadcast("audit.logged", entry)
+    return entry
+
+
 async def get_config() -> KdsConfig:
     doc = await db.config.find_one({"key": "kds"})
     if not doc:
@@ -299,7 +332,7 @@ async def _get_order(order_id: str):
 
 
 @api_router.patch("/orders/{order_id}/status")
-async def set_status(order_id: str, body: StatusUpdate):
+async def set_status(order_id: str, body: StatusUpdate, x_actor: Optional[str] = Header(None)):
     if body.status not in STATUS_FLOW:
         raise HTTPException(400, "Invalid status")
     doc = await _get_order(order_id)
@@ -314,26 +347,36 @@ async def set_status(order_id: str, body: StatusUpdate):
     await db.orders.update_one({"_id": doc["_id"]}, {"$set": update})
     out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
     await hub.broadcast("order.updated", out)
+    backwards = STATUS_FLOW.index(body.status) < STATUS_FLOW.index(doc.get("status", "new"))
+    await log_event(
+        out,
+        "recall" if backwards else f"status.{body.status}",
+        x_actor,
+        f"{doc.get('status')} -> {body.status}" if backwards else ACTION_LABELS.get(body.status),
+    )
     return out
 
 
 @api_router.patch("/orders/{order_id}/priority")
-async def set_priority(order_id: str, body: PriorityUpdate):
+async def set_priority(order_id: str, body: PriorityUpdate, x_actor: Optional[str] = Header(None)):
     doc = await _get_order(order_id)
     await db.orders.update_one({"_id": doc["_id"]}, {"$set": {"priority": body.priority}})
     out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
     await hub.broadcast("order.updated", out)
+    await log_event(out, "priority", x_actor, f"set {body.priority}")
     return out
 
 
 @api_router.patch("/orders/{order_id}/items/{index}")
-async def set_item_done(order_id: str, index: int, body: ItemDoneUpdate):
+async def set_item_done(order_id: str, index: int, body: ItemDoneUpdate, x_actor: Optional[str] = Header(None)):
     doc = await _get_order(order_id)
     if index < 0 or index >= len(doc.get("items", [])):
         raise HTTPException(404, "Item not found")
     await db.orders.update_one({"_id": doc["_id"]}, {"$set": {f"items.{index}.done": body.done}})
     out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
     await hub.broadcast("order.updated", out)
+    name = doc["items"][index].get("name")
+    await log_event(out, "item", x_actor, f"{'ticked' if body.done else 'unticked'} {name}")
     return out
 
 
@@ -346,7 +389,7 @@ async def clear_order(order_id: str):
 
 
 @api_router.patch("/orders/{order_id}/station")
-async def handoff_station(order_id: str, body: StationUpdate):
+async def handoff_station(order_id: str, body: StationUpdate, x_actor: Optional[str] = Header(None)):
     doc = await _get_order(order_id)
     prev = doc.get("station")
     if body.station == prev:
@@ -357,6 +400,7 @@ async def handoff_station(order_id: str, body: StationUpdate):
     )
     out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
     await hub.broadcast("order.updated", out)
+    await log_event(out, "handoff", x_actor, f"{prev} -> {body.station}")
     await _queue_print(out, reason=f"Handoff {prev} -> {body.station}")
     return out
 
@@ -410,6 +454,122 @@ async def retry_print_job(job_id: str):
     out = PrintJob.from_mongo(await db.print_jobs.find_one({"_id": doc["_id"]})).model_dump()
     await hub.broadcast("print.updated", out)
     return out
+
+
+@api_router.get("/orders/{order_id}/events")
+async def order_events(order_id: str):
+    await _get_order(order_id)
+    docs = await db.order_events.find({"orderId": order_id}).sort("_id", 1).to_list(200)
+    return [{**{k: v for k, v in d.items() if k != "_id"}, "id": str(d["_id"])} for d in docs]
+
+
+@api_router.get("/audit")
+async def audit_trail(limit: int = 100, kot: Optional[int] = None, actor: Optional[str] = None):
+    q = {}
+    if kot is not None:
+        q["kot"] = kot
+    if actor:
+        q["actor"] = actor
+    docs = await db.order_events.find(q).sort("_id", -1).to_list(min(limit, 300))
+    return [{**{k: v for k, v in d.items() if k != "_id"}, "id": str(d["_id"])} for d in docs]
+
+
+@api_router.get("/stats/weekly")
+async def weekly_trends():
+    """This week vs last week average prep time per dish."""
+    nowts = datetime.now(timezone.utc).timestamp()
+    week = 7 * 24 * 3600
+    buckets = {"this": {}, "last": {}}
+    days = {}
+
+    for d in await db.orders.find({}).to_list(5000):
+        try:
+            created = datetime.fromisoformat(d["createdAt"])
+        except Exception:
+            continue
+        age = nowts - created.timestamp()
+        if age > 2 * week:
+            continue
+        key = "this" if age <= week else "last"
+        if key == "this":
+            day = created.date().isoformat()
+            days[day] = days.get(day, 0) + 1
+        prep = None
+        if d.get("startedAt") and d.get("readyAt"):
+            try:
+                prep = (datetime.fromisoformat(d["readyAt"]) - datetime.fromisoformat(d["startedAt"])).total_seconds()
+            except Exception:
+                prep = None
+        for i in d.get("items", []):
+            e = buckets[key].setdefault(i["name"], {"qty": 0, "total": 0.0, "count": 0})
+            e["qty"] += i.get("qty", 1)
+            if prep and prep > 0:
+                e["total"] += prep
+                e["count"] += 1
+
+    def avg(b, name):
+        e = b.get(name)
+        return round(e["total"] / e["count"]) if e and e["count"] else None
+
+    dishes = []
+    for name in sorted(set(buckets["this"]) | set(buckets["last"])):
+        this_avg, last_avg = avg(buckets["this"], name), avg(buckets["last"], name)
+        dishes.append({
+            "name": name,
+            "thisWeekAvgSeconds": this_avg,
+            "lastWeekAvgSeconds": last_avg,
+            "deltaSeconds": (this_avg - last_avg) if (this_avg and last_avg) else None,
+            "thisWeekQty": buckets["this"].get(name, {}).get("qty", 0),
+            "lastWeekQty": buckets["last"].get(name, {}).get("qty", 0),
+        })
+
+    slowing = sorted([d for d in dishes if d["deltaSeconds"]], key=lambda x: -x["deltaSeconds"])[:5]
+    improving = sorted([d for d in dishes if d["deltaSeconds"]], key=lambda x: x["deltaSeconds"])[:5]
+    return {
+        "dishes": sorted(dishes, key=lambda x: -(x["thisWeekAvgSeconds"] or 0)),
+        "slowingDown": slowing,
+        "speedingUp": improving,
+        "ordersPerDay": [{"day": k, "count": v} for k, v in sorted(days.items())],
+        "generatedAt": now_iso(),
+    }
+
+
+@api_router.get("/printer/status")
+async def printer_status():
+    cfg = await get_config()
+    if not cfg.printerHost:
+        return {"configured": False, "enabled": cfg.printerEnabled, "reachable": False, "error": "No printer host set"}
+    err = await probe_printer(cfg.printerHost, cfg.printerPort)
+    queued = await db.print_jobs.count_documents({"status": {"$in": ["queued", "failed"]}})
+    return {
+        "configured": True,
+        "enabled": cfg.printerEnabled,
+        "host": cfg.printerHost,
+        "port": cfg.printerPort,
+        "reachable": err is None,
+        "error": err,
+        "pendingJobs": queued,
+    }
+
+
+@api_router.post("/reports/test-email")
+async def test_email():
+    """Sends a short setup-confirmation email to the configured recipient only."""
+    cfg = await get_config()
+    if not cfg.recapEmail:
+        return {"ok": False, "reason": "No recap email configured"}
+    html = (
+        '<table role="presentation" width="100%" style="background:#f7f7f7;padding:24px"><tr><td align="center">'
+        '<table role="presentation" width="600" style="background:#fff;border:1px solid #e5e7eb;border-radius:6px">'
+        '<tr><td style="padding:24px;font-family:Arial,sans-serif">'
+        '<div style="font-size:20px;font-weight:800;color:#2c2c2c">BhojPe KDS</div>'
+        '<div style="font-size:14px;color:#555;margin-top:8px">Your kitchen display is now set up to email the '
+        'shift recap to this address every night at 23:30 IST.</div>'
+        '<div style="font-size:12px;color:#888;margin-top:16px">We never ask for your password or card details by email.</div>'
+        "</td></tr></table></td></tr></table>"
+    )
+    email_id = await send_email(to=cfg.recapEmail, subject="BhojPe KDS — recap email confirmed", html=html)
+    return {"ok": True, "emailId": email_id, "to": cfg.recapEmail}
 
 
 @api_router.get("/config")

@@ -1,9 +1,9 @@
 import React from "react";
-import { ageOf, ageLevel, useKds } from "@/state/kdsState";
-import { ACTION_LABEL, NEXT_STATUS } from "@/services/mockOrderService";
-import { AlertTriangle, Clock, CheckCircle2, Flame, Bike, ShoppingBag, Utensils, PackageCheck, ChevronUp, Undo2, Check, Printer, ArrowRightLeft } from "lucide-react";
+import { ageOf, ageLevel, useKds } from "@/state/kdsState";import { ACTION_LABEL, NEXT_STATUS } from "@/services/mockOrderService";
+import { AlertTriangle, Clock, CheckCircle2, Flame, Bike, ShoppingBag, Utensils, PackageCheck, ChevronUp, Undo2, Check, Printer, ArrowRightLeft, History } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { STATIONS } from "@/services/mockOrderService";
+import { OrderHistoryDialog } from "@/components/Analytics";
 
 const TYPE_META = {
   "dine-in": { label: "DINE-IN", Icon: Utensils },
@@ -26,6 +26,7 @@ const PRIORITY = {
 
 export const KOTCard = ({ order }) => {
   const { now, state, actions } = useKds();
+  const [historyOpen, setHistoryOpen] = React.useState(false);
   const age = ageOf(order, now);
   const level = ageLevel(age.seconds, state.settings.slaMinutes * 60);
   const timer = TIMER_STYLE[level];
@@ -205,8 +206,17 @@ export const KOTCard = ({ order }) => {
           >
             <Printer className="w-4 h-4" />
           </button>
+          <button
+            data-testid={`kot-history-btn-${order.kot}`}
+            onClick={() => setHistoryOpen(true)}
+            title="Order history"
+            className="min-h-[44px] px-3 rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7]"
+          >
+            <History className="w-4 h-4" />
+          </button>
         </div>
       </div>
+      <OrderHistoryDialog order={order} open={historyOpen} onOpenChange={setHistoryOpen} />
     </div>
   );
 };
