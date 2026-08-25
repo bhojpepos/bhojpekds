@@ -1,0 +1,115 @@
+{
+  "theme": "light",
+  "typography": {
+    "fonts": {
+      "headings": "Poppins, sans-serif",
+      "body": "Inter, sans-serif"
+    },
+    "guidelines": {
+      "h1": "text-4xl sm:text-5xl font-semibold tracking-tight text-[#2C2C2C]",
+      "h2": "text-2xl sm:text-3xl font-semibold tracking-tight text-[#2C2C2C]",
+      "h3": "text-xl sm:text-2xl font-medium text-[#2C2C2C]",
+      "body": "text-base font-normal text-[#2C2C2C] leading-relaxed",
+      "small": "text-sm font-medium tracking-wide text-[#2C2C2C] opacity-70 uppercase",
+      "timer": "font-mono font-bold tracking-tight text-xl sm:text-2xl"
+    }
+  },
+  "colors": {
+    "primary": "#FF3131",
+    "dark": "#2C2C2C",
+    "background": "#F7F7F7",
+    "white": "#FFFFFF",
+    "status": {
+      "new": "#3B82F6",
+      "cooking": "#F59E0B",
+      "ready": "#10B981",
+      "completed": "#6B7280",
+      "urgent": "#FF3131",
+      "timer_delayed": "#DC2626"
+    },
+    "border": "#E5E7EB"
+  },
+  "visual_enhancers": {
+    "border_radius": "rounded-md (6px) to rounded-lg (8px) maximum.",
+    "shadows": "Minimal. Use shadow-sm for active cards, shadow-md for modals. No large or blurry shadows.",
+    "gradients": "None. Strictly flat, solid colors to maintain clinical clarity.",
+    "borders": "1px solid #E5E7EB on cards. 2px solid for active states.",
+    "overlays": "bg-black/60 with backdrop-blur-md for alerts and modals."
+  },
+  "layouts": {
+    "app_container": "h-screen w-full bg-[#F7F7F7] overflow-hidden flex flex-col font-sans",
+    "header": "h-16 lg:h-20 bg-[#FFFFFF] border-b border-[#E5E7EB] flex items-center justify-between px-4 sm:px-8 shrink-0 z-10",
+    "kds_board": "flex-1 overflow-x-auto overflow-y-hidden p-4 sm:p-6",
+    "grid": "flex gap-4 sm:gap-6 h-full min-w-max md:min-w-0 md:grid md:grid-cols-2 lg:grid-cols-4",
+    "column": "flex flex-col bg-[#F7F7F7] h-full w-[320px] md:w-auto",
+    "column_header": "flex justify-between items-center pb-3 mb-2 border-b-2 border-[#E5E7EB] sticky top-0 bg-[#F7F7F7] z-10",
+    "card_list": "flex-1 overflow-y-auto space-y-4 pb-8 pr-2 scrollbar-thin scrollbar-thumb-gray-300"
+  },
+  "components": {
+    "kot_card": {
+      "container": "bg-[#FFFFFF] rounded-md border border-[#E5E7EB] p-4 sm:p-5 flex flex-col gap-4 relative overflow-hidden",
+      "priority_indicator": "absolute left-0 top-0 bottom-0 w-1.5",
+      "header": "flex justify-between items-start",
+      "token": "text-3xl font-bold text-[#2C2C2C] font-heading",
+      "timer": "text-xl font-mono font-semibold px-3 py-1 rounded bg-slate-100 text-[#2C2C2C]",
+      "timer_delayed": "bg-red-100 text-[#FF3131] animate-pulse",
+      "order_type": "text-sm font-bold px-3 py-1 rounded-full uppercase bg-gray-100 text-gray-700",
+      "items_list": "space-y-3 border-t border-b border-gray-100 py-4 my-2 flex-1 overflow-y-auto",
+      "item_line": "flex justify-between text-[#2C2C2C] text-base sm:text-lg font-medium",
+      "item_note": "text-sm text-[#FF3131] mt-1 pl-4 bg-red-50/50 p-2 rounded",
+      "action_button": "w-full min-h-[52px] rounded-md font-bold text-lg transition-colors flex items-center justify-center text-white cursor-pointer active:scale-[0.98]"
+    },
+    "alert_overlay": {
+      "container": "fixed inset-0 z-50 flex items-center justify-center bg-[#FF3131]/95 backdrop-blur-md",
+      "content": "text-white text-center space-y-6 p-12 bg-black/20 rounded-2xl animate-pulse",
+      "text": "text-6xl sm:text-8xl font-black tracking-tighter"
+    },
+    "settings_drawer": {
+      "width": "w-[450px] max-w-full",
+      "bg": "bg-[#FFFFFF]"
+    }
+  },
+  "motion": {
+    "interactions": "Hover states on buttons (brightness 90%), active scale-down for touch targets (0.98).",
+    "lists": "Staggered fade-in for new KOT cards.",
+    "alerts": "Strong pulse/bounce for 'New Order' visual alert.",
+    "reduced_motion": "Respect prefers-reduced-motion for all heavy animations."
+  },
+  "media": {
+    "icons_library": "lucide-react",
+    "images": {
+      "chef_avatar": "https://images.unsplash.com/photo-1583394293214-28ded15ee548?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHwxfHxjaGVmJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzg3MjUyNjExfDA&ixlib=rb-4.1.0&q=85",
+      "setup_background": "https://images.pexels.com/photos/35096909/pexels-photo-35096909.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "abstract_accent": "https://images.unsplash.com/photo-1708457753320-02e52a276a80?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdlb21ldHJpYyUyMHJlZHxlbnwwfHx8fDE3ODcyNTI2MTJ8MA&ixlib=rb-4.1.0&q=85"
+    }
+  },
+  "accessibility": {
+    "touch_targets": "MINIMUM 44px, preferred 48-52px for all buttons and interactive elements in kitchen environment.",
+    "contrast": "Strict APCA/WCAG AA compliance. Dark text #2C2C2C on #F7F7F7 and #FFFFFF.",
+    "test_ids": "All interactive elements must include data-testid attribute.",
+    "font_sizing": "Scale fonts appropriately for TV displays vs tablets using CSS clamp() or strict breakpoint variants."
+  },
+  "instructions_to_main_agent": [
+    "DO NOT create components that resemble existing KDS solutions. Stick to the defined color palette and typography strictly.",
+    "Use Shadcn UI for dialogs, sheets (settings drawer), dropdowns, and switches, but heavily customize borders and radii to match 5-8px rule.",
+    "For the main KDS board, write custom flex/grid layouts with raw HTML/Tailwind to ensure absolute control over columns and card stretching.",
+    "Ensure the layout never breaks on horizontal scrolling (TV mode). Columns should have a minimum width of ~320px on small screens.",
+    "Avoid using Shadcn 'Card' component for KOT cards if it restricts layout flexibility; use custom div structure with Tailwind instead.",
+    "Implement a robust 'mock data' generator for V1 to simulate incoming orders, aging timers, and status changes.",
+    "Include a 'demo controls' section in Settings to trigger a 'New Order' alert, simulate delay, etc.",
+    "Design for high-speed touch input. Buttons MUST be large, clear, and single-action."
+  ],
+  "universal_guidelines_for_main_agent": [
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Use sonner for toast notifications.",
+    "Never apply universal transitions (transition: all).",
+    "Never center align the app container text globally.",
+    "DO NOT use transparent backgrounds for dropdowns or modals over content. Always use solid or blurred semi-transparent backgrounds."
+  ],
+  "general_ui_ux_design_guidelines": [
+    "Visual Hierarchy: The token number and timer are the most critical pieces of information. Make them massive.",
+    "Action Clarity: Only show ONE primary action button per card depending on its status (e.g., START COOKING).",
+    "Glanceability: Statuses should be recognizable from 10 feet away. Use distinct colored left-borders or top-borders for priority (Normal/High/Urgent).",
+    "Error Prevention: Out-of-stock toggles should have clear confirmation dialogs."
+  ]
+}

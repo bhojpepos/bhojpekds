@@ -1,0 +1,199 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --bhoj-primary: #ff3131;
+    --bhoj-dark: #2c2c2c;
+    --bhoj-bg: #f7f7f7;
+    --bhoj-border: #e5e7eb;
+    --k: 1;
+}
+
+body {
+    margin: 0;
+    font-family: Inter, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: var(--bhoj-bg);
+    color: var(--bhoj-dark);
+}
+
+.font-head {
+    font-family: Poppins, sans-serif;
+}
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 0 0% 17%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 17%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 17%;
+        --primary: 0 100% 60%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 0 0% 96.1%;
+        --secondary-foreground: 0 0% 17%;
+        --muted: 0 0% 96.1%;
+        --muted-foreground: 0 0% 45.1%;
+        --accent: 0 0% 96.1%;
+        --accent-foreground: 0 0% 17%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 220 13% 91%;
+        --input: 220 13% 91%;
+        --ring: 0 100% 60%;
+        --radius: 0.4rem;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+}
+
+/* ---- responsive scale-driven kitchen typography ---- */
+.kds-scope {
+    --k: 1;
+}
+@media (min-width: 1600px) {
+    .kds-scope.mode-auto {
+        --k: 1.18;
+    }
+}
+@media (min-width: 2200px) {
+    .kds-scope.mode-auto {
+        --k: 1.4;
+    }
+}
+.kds-scope.mode-tablet {
+    --k: 0.92;
+}
+.kds-scope.mode-tv {
+    --k: 1.25;
+}
+.kds-scope.mode-largetv {
+    --k: 1.5;
+}
+
+.k-token {
+    font-size: calc(2.1rem * var(--k));
+    line-height: 1.05;
+    font-weight: 800;
+    font-family: Poppins, sans-serif;
+    letter-spacing: -0.02em;
+}
+.k-token-label {
+    font-size: calc(0.62rem * var(--k));
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    text-transform: uppercase;
+    opacity: 0.55;
+}
+.k-timer {
+    font-size: calc(1.15rem * var(--k));
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.k-item-qty {
+    font-size: calc(1.35rem * var(--k));
+    font-weight: 800;
+    font-family: Poppins, sans-serif;
+    line-height: 1.1;
+}
+.k-item-name {
+    font-size: calc(1.05rem * var(--k));
+    font-weight: 600;
+    line-height: 1.25;
+}
+.k-note {
+    font-size: calc(0.8rem * var(--k));
+    font-weight: 600;
+}
+.k-meta {
+    font-size: calc(0.8rem * var(--k));
+    font-weight: 600;
+}
+.k-action {
+    font-size: calc(0.95rem * var(--k));
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    min-height: calc(52px * var(--k));
+}
+.k-col-title {
+    font-size: calc(1rem * var(--k));
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    font-family: Poppins, sans-serif;
+}
+.k-col-count {
+    font-size: calc(1rem * var(--k));
+    font-weight: 800;
+}
+
+.kot-enter {
+    animation: kotIn 0.35s ease-out;
+}
+@keyframes kotIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+.alert-pop {
+    animation: alertPop 0.25s ease-out;
+}
+@keyframes alertPop {
+    from {
+        transform: scale(0.85);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+.blink-soft {
+    animation: blinkSoft 1.1s ease-in-out infinite;
+}
+@keyframes blinkSoft {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.45;
+    }
+}
+
+.thin-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+    background: #d4d4d8;
+    border-radius: 8px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kot-enter,
+    .alert-pop,
+    .blink-soft {
+        animation: none;
+    }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+}

@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 2 e2e testing of BhojPe KDS (backend + frontend). Backend pytest suite 17/17 PASSED covering /api/health, /api/pair, /api/orders (no _id leakage, ISO createdAt), /api/menu seed (12 items, Chicken Biryani unavailable), POS create random/explicit with incrementing KOT, status transitions with startedAt/readyAt/completedAt stamps + RECALL clears later stamps, invalid status 400, unknown id 404, item tick toggle, item out-of-range 404, priority update, delete, menu PATCH returning syncedToPOS:true, demo/delay urgent+16m aging, /api/stats/prep-time station rows with avg/slowest/counts + overallAvgSeconds updating after cook->ready, and WebSocket /api/ws broadcasting order.created (verified via wss:// through preview ingress). Frontend Playwright tests confirmed: setup pairing (Connect & Sync -> BhojPe Server, Pair POS, Enter KDS), board renders 15 seeded orders from backend, item tick strikes through + shows 'n/m done' chip and persists after reload, START COOKING moves card + shows undo bar 'KOT #1033 -> COOKING' and persists after reload, kot-recall-btn moves card back one status and persists, live WS: curl POST /api/pos/orders/random pushed KOT 1035 into NEW column with fullscreen NEW ORDER alert without reload, Prep Insights tab shows Overall Avg 8m 11s + 6 station rows with progress bars and Refresh Insights works, offline mode via demo-toggle-server shows offline-banner with cached cards, /token page groups READY KOTs correctly (DINE-IN 1018, TAKEAWAY 1022). Responsive: 375/768/1280/1920 no horizontal overflow; mobile-status-* nav renders at 375. NOTE: dual-render duplicate DOM (both md:grid + md:hidden layouts co-exist) is still present as documented in iteration_1 (8 column testids at 1280 = 4 cols x 2 layouts); functional but duplicates data-testids.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/pos/orders (KOT counter)", "issue": "First POS-created KOT after seed is 1035, skipping 1034. seed() sets counters.seq=11 while seeded KOTs go up to 1033; combined with return_document semantics on find_one_and_update, the next KOT jumps by 2 instead of 1. Purely cosmetic (KOT numbers still monotonically increase) but observable as a gap."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global (Settings drawer, OOS dialog)", "issues": ["Radix warning: 'Missing Description or aria-describedby={undefined} for DialogContent' — a11y nit carried over from iteration 1, still present."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL(minor): Fix KOT counter off-by-one so first POS-created KOT is max_seed_kot+1 (currently jumps 1033 -> 1035). Adjust seed's counters.seq initialization or use ReturnDocument.AFTER explicitly.",
+    "OPTIONAL(a11y): Add DialogDescription / aria-describedby to Settings Sheet and OOS confirmation dialog to silence Radix warning (carried over from iteration_1).",
+    "OPTIONAL(dedup DOM): KDS.jsx still renders BOTH md:grid and md:hidden layouts unconditionally, producing duplicate data-testids in the DOM. iteration_1 report claimed this was fixed via matchMedia; at 1280x900 we still count 8 column-* testids (4x2). Not user-facing but breaks strict test scoping."
+  ],
+  "critical_code_review_comments": [
+    "server.py next_kot(): uses `return_document=True` — motor treats truthy as AFTER, and seed sets seq=11 (should be 10) so first new KOT = 1035 not 1034.",
+    "WebSocket /api/ws works over public wss:// only when Origin header is set; browser satisfies this naturally, but any server-side WS client must send an Origin (not a bug, just documented).",
+    "prep-time stats correctly excludes orders where startedAt/readyAt not set and clamps overallAvgSeconds to null when empty — good.",
+    "STATUS_FLOW recall logic in PATCH /orders/{id}/status correctly nulls later stamps when moving backwards.",
+    "MongoDB _id -> id mapping via PyObjectId is clean; no ObjectId leakage in JSON responses.",
+    "Frontend KDS.jsx dual-render remains (see action_items)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (new)"
+  ],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% on all tested flows"},
+  "test_credentials": "None. Pre-filled BHP-8F42-K91 / POS-7F42A9.",
+  "seed_data_creation": "POST /api/demo/reset seeds 15 KOTs (1018-1033) + 12 menu items. Tests use TEST_ prefixed dish names for isolation.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression suite is /app/backend/tests/backend_test.py — run with `pytest /app/backend/tests/backend_test.py -v`. WS test requires Origin header (set in test). Frontend testids to prefer: connect-sync-btn, pair-pos-btn, enter-kds-btn (NOT open-kds-btn), settings-btn, settings-tab-insights/demo, kot-card-{kot}, kot-action-btn-{kot}, kot-recall-btn-{kot}, kot-{kot}-item-tick-{idx}, kot-progress-{kot}, undo-bar/undo-btn/undo-dismiss-btn, prep-insights, overall-avg, prep-row-*, refresh-stats-btn, demo-toggle-server, offline-banner, new-order-alert, dismiss-alert-btn. Order ids are 24-char Mongo ObjectId strings — build selectors from KOT numbers. Dual DOM render still duplicates testids across responsive breakpoints; use .first when needed.",
+  "rca of the issue": "KOT gap RCA: seed() sets `counters.seq = 11` after inserting 15 seeded orders with KOTs up to 1033. next_kot() calls find_one_and_update with $inc:{seq:1} and return_document=True. In motor, `return_document=True` is treated as ReturnDocument.AFTER, so the first call returns seq=12 and computes 1024 + 12 - 1 = 1035 (skipping 1034). Fix: initialize counters.seq to 10 (so first inc -> 11 -> 1024+11-1=1034), or use return_document=ReturnDocument.BEFORE, or compute kot = 1024 + seq (no -1)."
+}
