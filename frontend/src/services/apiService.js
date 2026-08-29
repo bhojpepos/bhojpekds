@@ -39,6 +39,26 @@ export const wsUrl = () => {
 
 export const health = () => api.get("/health").then((r) => r.data);
 
+// Super-admin's platform logo (billing's PlatformSetting 'brand_logo'), same
+// mark shown across every Bhojpe product. Cached so the header/sidebar never
+// flash the fallback mark on reload while the network call is in flight.
+const LOGO_CACHE_KEY = "bhojpe_kds_brand_logo";
+export const getCachedBrandLogo = () => {
+  try {
+    return localStorage.getItem(LOGO_CACHE_KEY) || null;
+  } catch {
+    return null;
+  }
+};
+export const fetchBrandLogo = () =>
+  api.get("/brand-logo").then((r) => {
+    const url = r.data?.url || null;
+    try {
+      if (url) localStorage.setItem(LOGO_CACHE_KEY, url);
+    } catch {}
+    return url;
+  });
+
 // Stable per-browser id, generated once and kept in localStorage - lets
 // billing recognize "this is the same physical screen" across re-pairs
 // (e.g. after clearing localStorage's paired flag but not this id) instead

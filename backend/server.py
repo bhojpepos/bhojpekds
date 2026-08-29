@@ -214,6 +214,24 @@ async def health():
     return {"server": "connected", "pos": "connected", "sync": "active", "time": now_iso()}
 
 
+@api_router.get("/brand-logo")
+async def brand_logo():
+    """Platform logo set by super-admin (billing's PlatformSetting 'brand_logo',
+    not any tenant's own branding) - same global mark shown across every
+    Bhojpe product, proxied so the frontend never needs billing's URL/CORS.
+    Public on billing's side, so this stays callable before pairing too.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.get(f"{BILLING_API_BASE_URL}/api/v1/app/brand-logo")
+        payload = resp.json()
+    except httpx.HTTPError:
+        return {"url": None}
+
+    data = payload.get("data", payload)
+    return {"url": data.get("url")}
+
+
 @api_router.post("/pair")
 async def pair(body: PairRequest):
     """Pairs this browser/screen to a branch via billing's real branch sync
@@ -368,6 +386,17 @@ async def chef_login(body: dict, pairing: dict = Depends(require_pairing)):
         }},
     )
 
+    # Phase 5, first slice (request 2026-08-30) — a chef logging in is the
+    # first moment we have a real Sanctum token for this branch, so it's
+    # also the natural trigger to pull billing's real catalog in (item
+    # availability toggles need a billingItemId to push back against; see
+    # sync_menu_from_billing() and set_availability() below). Best-effort:
+    # a sync failure shouldn't block the chef from logging in and working.
+    try:
+        await sync_menu_from_billing(pairing["_id"], pairing["branchId"], data.get("token"))
+    except Exception:
+        logger.exception("Menu sync from billing failed after chef login")
+
     return {
         "ok": True,
         "chefId": user.get("id"),
@@ -375,6 +404,53 @@ async def chef_login(body: dict, pairing: dict = Depends(require_pairing)):
         "chefRole": (user.get("role") or {}).get("name") if isinstance(user.get("role"), dict) else user.get("role"),
         "chefAvatar": user.get("avatar"),
     }
+
+
+async def sync_menu_from_billing(device_token: str, branch_id: str, chef_token: str) -> None:
+    """Pulls billing's REAL catalog (every item, available or not — unlike
+    /api/v1/items/menu, which hard-filters to available items only and so
+    can't be used here) for this paired branch into our local `menu`
+    collection, tagging each doc with billingItemId. That id is what lets
+    set_availability() below push a toggle back to the SAME real item
+    instead of a disconnected local-only one. Loops billing's paginated
+    /api/v1/items response since it doesn't support a bigger page size.
+    """
+    headers = {"Authorization": f"Bearer {chef_token}"}
+    rows: List[dict] = []
+    page = 1
+    async with httpx.AsyncClient(timeout=15) as http:
+        while True:
+            resp = await http.get(
+                f"{BILLING_API_BASE_URL}/api/v1/items",
+                params={"branch_id": branch_id, "page": page},
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                break
+            payload = resp.json().get("data", {})
+            page_rows = payload.get("data", []) if isinstance(payload, dict) else []
+            rows.extend(page_rows)
+            last_page = payload.get("last_page", 1) if isinstance(payload, dict) else 1
+            if page >= last_page or not page_rows:
+                break
+            page += 1
+
+    for row in rows:
+        billing_id = row.get("id")
+        if not billing_id:
+            continue
+        kitchen = row.get("kitchen") or {}
+        await db.menu.update_one(
+            {"billingItemId": billing_id, "branchId": branch_id},
+            {"$set": {
+                "name": row.get("name") or "Unnamed item",
+                "station": kitchen.get("name") or "Main Kitchen",
+                "available": bool(row.get("is_available", True)),
+                "branchId": branch_id,
+                "billingItemId": billing_id,
+            }},
+            upsert=True,
+        )
 
 
 def _branch_filter(ctx: Optional[dict], extra: Optional[dict] = None) -> dict:
@@ -945,16 +1021,40 @@ async def list_menu(ctx: Optional[dict] = Depends(get_branch_context)):
 
 
 @api_router.patch("/menu/{item_id}")
-async def set_availability(item_id: str, body: AvailabilityUpdate):
+async def set_availability(item_id: str, body: AvailabilityUpdate, ctx: Optional[dict] = Depends(get_branch_context)):
     if not ObjectId.is_valid(item_id):
         raise HTTPException(404, "Item not found")
     doc = await db.menu.find_one({"_id": ObjectId(item_id)})
     if not doc:
         raise HTTPException(404, "Item not found")
+
+    was_available = doc.get("available", True)
     await db.menu.update_one({"_id": doc["_id"]}, {"$set": {"available": body.available}})
     out = MenuItem.from_mongo(await db.menu.find_one({"_id": doc["_id"]})).model_dump()
+
+    # Phase 5 (request 2026-08-30) — push the toggle back to billing so it
+    # becomes the real, order-blocking CatalogItem.is_available everywhere
+    # else (POS, Captain, online menu, and eventually this KDS's own
+    # broadcast below), not just a local-only flag. Billing's endpoint is a
+    # TOGGLE, not a set-to-value, so this only calls it when the state is
+    # actually changing — an unpaired/local-demo screen (no chefToken) or
+    # an item that predates the billing catalog sync (no billingItemId)
+    # just skips this and stays local-only, same as before.
+    billing_id = out.get("billingItemId")
+    synced_to_billing = False
+    if billing_id and body.available != was_available and ctx and ctx.get("chefToken"):
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                resp = await http.patch(
+                    f"{BILLING_API_BASE_URL}/api/v1/items/{billing_id}/toggle-availability",
+                    headers={"Authorization": f"Bearer {ctx['chefToken']}"},
+                )
+            synced_to_billing = resp.status_code == 200
+        except httpx.HTTPError:
+            synced_to_billing = False
+
     await hub.broadcast("menu.updated", out, branch_id=out.get("branchId"))
-    return {**out, "syncedToPOS": True, "syncedAt": now_iso()}
+    return {**out, "syncedToPOS": True, "syncedToBilling": synced_to_billing, "syncedAt": now_iso()}
 
 
 @api_router.get("/stats/prep-time")

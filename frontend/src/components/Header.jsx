@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useKds } from "@/state/kdsState";
 import { ChefProfile } from "@/components/ChefProfile";
+import { BrandMark } from "@/components/BrandMark";
 import { Dot } from "@/components/ConnectionStatus";
 import { Volume2, VolumeX, Settings, Maximize2, Minimize2, Package } from "lucide-react";
 
@@ -32,20 +33,13 @@ export const Header = ({ onOpenSettings }) => {
   return (
     <header className="bg-white border-b border-[#E5E7EB] px-3 sm:px-5 py-2.5 flex items-center gap-3 shrink-0">
       <div className="flex items-center gap-3 min-w-0">
-        <div className="w-10 h-10 rounded-md bg-[#FF3131] text-white font-head font-extrabold flex items-center justify-center text-lg shrink-0">
-          B
-        </div>
-        <div className="min-w-0">
-          <div className="font-head font-extrabold leading-tight text-base sm:text-lg">
-            Bhoj<span className="text-[#FF3131]">Pe</span> KDS
-          </div>
-          <div className="flex items-center gap-2 text-[11px] sm:text-xs font-semibold opacity-70">
-            <span className="truncate" data-testid="header-station">{state.station}</span>
-            <span className="flex items-center gap-1" data-testid="header-online">
-              <Dot ok={online} />
-              {online ? "Online" : "Local Mode"}
-            </span>
-          </div>
+        <BrandMark size={72} />
+        <div className="min-w-0 flex items-center gap-2 text-[11px] sm:text-xs font-semibold opacity-70">
+          <span className="truncate" data-testid="header-station">{state.station}</span>
+          <span className="flex items-center gap-1" data-testid="header-online">
+            <Dot ok={online} />
+            {online ? "Online" : "Local Mode"}
+          </span>
         </div>
       </div>
 

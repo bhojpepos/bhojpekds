@@ -6,6 +6,7 @@ import { STATIONS } from "@/services/mockOrderService";
 import { unlockAudio } from "@/services/soundService";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, ArrowRight, KeyRound, Link2, Delete, CornerDownLeft } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 
 const RED = "#FF3131";
 const BLACK = "#111111";
@@ -22,9 +23,7 @@ const PageShell = ({ children, showImage }) => (
   >
     <header className="h-16 flex items-center px-4 sm:px-8 shrink-0">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-md flex items-center justify-center text-white font-extrabold" style={{ background: RED }}>
-          B
-        </div>
+        <BrandMark size={36} />
         <div className="font-extrabold text-lg tracking-tight">
           Bhoj<span style={{ color: RED }}>Pe</span> KDS
         </div>
