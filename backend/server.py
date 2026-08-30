@@ -274,7 +274,10 @@ async def pair(body: PairRequest):
         "kitchenId": data.get("kitchen_id"),
         "branchName": data.get("branch_name"),
         "restaurantName": data.get("restaurant_name"),
-        "stations": data.get("stations") or STATIONS,
+        # Real per-branch kitchens only - no demo fallback. An empty list here
+        # means the branch genuinely has zero kitchens configured in billing;
+        # the frontend shows an honest empty state instead of fake stations.
+        "stations": data.get("stations") or [],
         "pairedAt": now_iso(),
         # Kept so /api/staff and /api/login (both keyed off this pairing, not
         # a fresh code entry) can reuse it against billing's public
@@ -404,6 +407,144 @@ async def chef_login(body: dict, pairing: dict = Depends(require_pairing)):
         "chefRole": (user.get("role") or {}).get("name") if isinstance(user.get("role"), dict) else user.get("role"),
         "chefAvatar": user.get("avatar"),
     }
+
+
+async def require_chef_token(pairing: dict = Depends(require_pairing)) -> dict:
+    """Like require_pairing, but for endpoints that need an authenticated
+    billing user context (the chef's Sanctum token from POST /login) - real
+    device/printer management is gated behind billing's auth:sanctum.
+    """
+    if not pairing.get("chefToken"):
+        raise HTTPException(401, "Please log in first.")
+    return pairing
+
+
+@api_router.get("/devices")
+async def list_devices(pairing: dict = Depends(require_chef_token)):
+    """Real paired devices for this branch - proxies billing's GET /devices
+    (DeviceController::index). That endpoint isn't branch-scoped on billing's
+    side (returns every device for the tenant), so it's filtered here by
+    branch name - the only branch identifier each device row exposes.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.get(
+                f"{BILLING_API_BASE_URL}/api/v1/devices",
+                headers={"Authorization": f"Bearer {pairing['chefToken']}", "Accept": "application/json"},
+            )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Could not reach the BhojPe server.")
+
+    payload = resp.json()
+    if resp.status_code != 200 or not payload.get("success", True):
+        raise HTTPException(resp.status_code if resp.status_code >= 400 else 502, payload.get("message", "Could not load devices."))
+
+    devices = payload.get("data", payload)
+    if not isinstance(devices, list):
+        devices = []
+    branch_name = pairing.get("branchName")
+    filtered = [d for d in devices if not branch_name or d.get("branch") == branch_name]
+
+    return [
+        {
+            "id": d.get("id"),
+            "name": d.get("name"),
+            "type": d.get("type"),
+            "platform": d.get("platform"),
+            "status": d.get("status"),
+            "lastSeen": d.get("lastSeen"),
+        }
+        for d in filtered
+    ]
+
+
+@api_router.patch("/devices/{device_id}/rename")
+async def rename_device(device_id: str, body: dict, pairing: dict = Depends(require_chef_token)):
+    """Proxies billing's PATCH /devices/{id}/rename. Owner/manager-gated on
+    billing's side - a non-manager chef's token gets a real 403 there, passed
+    through as-is rather than worked around.
+    """
+    name = ((body or {}).get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "Name is required.")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.patch(
+                f"{BILLING_API_BASE_URL}/api/v1/devices/{device_id}/rename",
+                json={"name": name},
+                headers={"Authorization": f"Bearer {pairing['chefToken']}", "Accept": "application/json"},
+            )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Could not reach the BhojPe server.")
+
+    payload = resp.json()
+    if resp.status_code != 200 or not payload.get("success", True):
+        raise HTTPException(resp.status_code if resp.status_code >= 400 else 502, payload.get("message", "Could not rename device."))
+
+    return payload.get("data", payload)
+
+
+@api_router.delete("/devices/{device_id}")
+async def disconnect_device(device_id: str, pairing: dict = Depends(require_chef_token)):
+    """Proxies billing's DELETE /devices/{id}. Owner/manager-gated there,
+    same as rename above.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.delete(
+                f"{BILLING_API_BASE_URL}/api/v1/devices/{device_id}",
+                headers={"Authorization": f"Bearer {pairing['chefToken']}", "Accept": "application/json"},
+            )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Could not reach the BhojPe server.")
+
+    payload = resp.json()
+    if resp.status_code != 200 or not payload.get("success", True):
+        raise HTTPException(resp.status_code if resp.status_code >= 400 else 502, payload.get("message", "Could not disconnect device."))
+
+    return {"ok": True}
+
+
+@api_router.get("/printers")
+async def list_printers(pairing: dict = Depends(require_chef_token)):
+    """Real branch printers - proxies billing's staff-scoped GET /printers
+    (PrinterController::index). Only active `network` printers are returned
+    - bhojpekds's own local TCP client (printer.py) can only reach a printer
+    with a real LAN ip/port; system/USB printers are attached to a different
+    computer entirely and would silently fail to print from here.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.get(
+                f"{BILLING_API_BASE_URL}/api/v1/printers",
+                params={"branch_id": pairing["branchId"]},
+                headers={"Authorization": f"Bearer {pairing['chefToken']}", "Accept": "application/json"},
+            )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Could not reach the BhojPe server.")
+
+    payload = resp.json()
+    if resp.status_code != 200 or not payload.get("success", True):
+        raise HTTPException(resp.status_code if resp.status_code >= 400 else 502, payload.get("message", "Could not load printers."))
+
+    printers = payload.get("data", payload)
+    if not isinstance(printers, list):
+        printers = []
+
+    network = [p for p in printers if p.get("connection_type") == "network" and p.get("status") == "active" and p.get("ip")]
+    return [
+        {
+            "id": p.get("id"),
+            "name": p.get("name"),
+            "ip": p.get("ip"),
+            "port": p.get("port") or 9100,
+            "isDefaultKot": bool(p.get("is_default_kot")),
+            "kitchenId": (p.get("kitchen") or {}).get("id"),
+            "kitchenName": (p.get("kitchen") or {}).get("name"),
+        }
+        for p in network
+    ]
 
 
 async def sync_menu_from_billing(device_token: str, branch_id: str, chef_token: str) -> None:

@@ -1,14 +1,9 @@
-// Mock order service. Swap these functions with real BhojPe API/WebSocket calls later.
-
-export const STATIONS = [
-  "Main Kitchen",
-  "Tandoor",
-  "Chinese",
-  "Bakery",
-  "Dessert",
-  "Bar",
-  "Pizza",
-];
+// Demo order generator, powering the explicitly-labeled "Demo Controls"
+// settings tab only (Generate New KOT / Mark Random Ready / Simulate
+// Delayed). Real order data always comes from the API (kdsState.js's
+// refresh()); this file never feeds the real board. Station names used here
+// are just flavor text for fabricated demo tickets, not a stations list -
+// the real per-branch list lives in state.connection.stations (from pairing).
 
 export const MENU_ITEMS = [
   { id: "m1", name: "Paneer Tikka", station: "Tandoor", available: true },

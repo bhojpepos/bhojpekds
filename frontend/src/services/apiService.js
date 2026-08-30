@@ -83,6 +83,14 @@ export const pair = (syncCode, pairCode) =>
 export const fetchStaff = () => api.get("/staff").then((r) => r.data);
 export const chefLogin = (passcode) => api.post("/login", { passcode }).then((r) => r.data);
 
+// Real devices/printers for this branch (proxies billing's DeviceController/
+// PrinterController) - require a logged-in chef (require_chef_token in
+// server.py), so these 401 until Setup.jsx's passcode stage has succeeded.
+export const fetchDevices = () => api.get("/devices").then((r) => r.data);
+export const renameDevice = (id, name) => api.patch(`/devices/${id}/rename`, { name }).then((r) => r.data);
+export const disconnectDevice = (id) => api.delete(`/devices/${id}`).then((r) => r.data);
+export const fetchPrinters = () => api.get("/printers").then((r) => r.data);
+
 export const fetchOrders = () => api.get("/orders").then((r) => r.data);
 export const fetchMenu = () => api.get("/menu").then((r) => r.data);
 export const fetchPrepStats = () => api.get("/stats/prep-time").then((r) => r.data);

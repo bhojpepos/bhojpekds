@@ -12,7 +12,12 @@ const FILTERS = [
   { id: "delivery", label: "Delivery" },
 ];
 
-export const FilterBar = ({ filter, setFilter, query, setQuery }) => (
+// stations: real per-branch kitchens (state.connection.stations, from
+// pairing — see kdsState.js/Setup.jsx). stationFilter: "all" or a station
+// name; onStationFilterChange(value) flips state.settings.stationFilterOn +
+// state.station, the same fields the Kitchen Station settings tab already
+// uses — this is just a faster, always-visible way to reach the same filter.
+export const FilterBar = ({ filter, setFilter, query, setQuery, stations = [], stationFilter = "all", onStationFilterChange }) => (
   <div className="flex flex-col lg:flex-row gap-2 lg:items-center px-3 sm:px-5 py-2.5 bg-white border-b border-[#E5E7EB]">
     <div className="flex gap-2 overflow-x-auto thin-scroll pb-1 lg:pb-0">
       {FILTERS.map((f) => (
@@ -30,6 +35,23 @@ export const FilterBar = ({ filter, setFilter, query, setQuery }) => (
         </button>
       ))}
     </div>
+
+    {stations.length > 0 && (
+      <select
+        data-testid="station-filter-select"
+        value={stationFilter}
+        onChange={(e) => onStationFilterChange?.(e.target.value)}
+        className="shrink-0 min-h-[44px] px-3 rounded-md border border-[#E5E7EB] bg-white text-sm font-bold text-[#2C2C2C] outline-none focus:border-[#FF3131]"
+      >
+        <option value="all">All Stations</option>
+        {stations.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
+    )}
+
     <div className="relative lg:ml-auto lg:w-80">
       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-40" />
       <input

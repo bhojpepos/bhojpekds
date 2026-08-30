@@ -26,6 +26,9 @@ export const PrinterConfig = () => {
   const [host, setHost] = useState("");
   const [port, setPort] = useState("9100");
   const [status, setStatus] = useState(null);
+  const [printers, setPrinters] = useState(null);
+  const [selectedId, setSelectedId] = useState("manual");
+  const [manualOpen, setManualOpen] = useState(false);
 
   const checkStatus = async () => {
     try {
@@ -41,7 +44,46 @@ export const PrinterConfig = () => {
       setPort(String(cfg.printerPort || 9100));
       checkStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg]);
+
+  // Real registered printers for this branch (billing's Printer records,
+  // filtered server-side to reachable network printers - see /printers in
+  // server.py). Auto-picks the branch's default KOT printer on first load.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .fetchPrinters()
+      .then((list) => {
+        if (cancelled) return;
+        setPrinters(list);
+        if (cfg?.printerHost) {
+          const match = list.find((p) => p.ip === cfg.printerHost && p.port === (cfg.printerPort || 9100));
+          setSelectedId(match ? match.id : "manual");
+          if (!match) setManualOpen(true);
+        } else {
+          // No printer configured yet on this screen - auto-apply the
+          // branch's default KOT printer (or the first registered one) so a
+          // freshly-paired KDS starts printing without a manual step.
+          const def = list.find((p) => p.isDefaultKot) || list[0];
+          if (def) {
+            setSelectedId(def.id);
+            applyPrinter(def);
+          }
+        }
+      })
+      .catch(() => setPrinters([]));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg?.printerHost, cfg?.printerPort]);
+
+  const applyPrinter = async (printer) => {
+    await actions.saveConfig({ printerHost: printer.ip, printerPort: printer.port });
+    toast.success(`Now printing to ${printer.name}`);
+    checkStatus();
+  };
 
   if (!cfg) return <div className="bg-white border border-[#E5E7EB] rounded-md p-4 text-sm opacity-60">Printer config unavailable.</div>;
 
@@ -60,21 +102,65 @@ export const PrinterConfig = () => {
           onCheckedChange={(v) => actions.saveConfig({ printerEnabled: v })}
         />
       </div>
-      <Input label="Printer IP / Host" value={host} onChange={setHost} placeholder="192.168.1.50" testId="printer-host-input" />
-      <Input label="Port" value={port} onChange={setPort} placeholder="9100" testId="printer-port-input" />
-      <button
-        data-testid="save-printer-btn"
-        onClick={async () => {
-          const h = host.trim();
-          if (!h) return toast.error("Enter your printer's IP address");
-          await actions.saveConfig({ printerHost: h, printerPort: Number(port) || 9100 });
-          toast.success("Printer settings saved");
-          checkStatus();
-        }}
-        className="w-full min-h-[48px] rounded-md bg-[#FF3131] text-white text-sm font-bold"
-      >
-        SAVE PRINTER
-      </button>
+
+      <div className="bg-white border border-[#E5E7EB] rounded-md p-3">
+        <label className="block text-xs font-bold uppercase tracking-widest opacity-55 mb-1.5">
+          Registered branch printer
+        </label>
+        {printers === null ? (
+          <div className="text-sm opacity-55">Loading printers…</div>
+        ) : printers.length === 0 ? (
+          <div className="text-sm opacity-55">
+            No network printer registered for this branch yet. Add one in the POS's Printer
+            settings, or set one manually below.
+          </div>
+        ) : (
+          <select
+            data-testid="printer-select"
+            value={selectedId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedId(id);
+              if (id === "manual") {
+                setManualOpen(true);
+                return;
+              }
+              const p = printers.find((x) => x.id === id);
+              if (p) applyPrinter(p);
+            }}
+            className="w-full min-h-[48px] px-3 rounded-md border border-[#E5E7EB] outline-none focus:border-[#FF3131] bg-white"
+          >
+            {printers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.isDefaultKot ? " (Default KOT)" : ""}
+                {p.kitchenName ? ` — ${p.kitchenName}` : ""} · {p.ip}:{p.port}
+              </option>
+            ))}
+            <option value="manual">Manual IP / Host…</option>
+          </select>
+        )}
+      </div>
+
+      {(manualOpen || (printers && printers.length === 0)) && (
+        <>
+          <Input label="Printer IP / Host" value={host} onChange={setHost} placeholder="192.168.1.50" testId="printer-host-input" />
+          <Input label="Port" value={port} onChange={setPort} placeholder="9100" testId="printer-port-input" />
+          <button
+            data-testid="save-printer-btn"
+            onClick={async () => {
+              const h = host.trim();
+              if (!h) return toast.error("Enter your printer's IP address");
+              await actions.saveConfig({ printerHost: h, printerPort: Number(port) || 9100 });
+              toast.success("Printer settings saved");
+              checkStatus();
+            }}
+            className="w-full min-h-[48px] rounded-md bg-[#FF3131] text-white text-sm font-bold"
+          >
+            SAVE PRINTER
+          </button>
+        </>
+      )}
       <button
         data-testid="check-printer-btn"
         onClick={async () => {

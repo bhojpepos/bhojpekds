@@ -1,11 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { useKds, DEFAULT_COLORS } from "@/state/kdsState";
-import { STATIONS, STATUS_ORDER, STATUS_LABEL } from "@/services/mockOrderService";
-import { DEMO_TOKEN_CODE } from "@/services/mockDeviceService";
-import { ConnectionStatus, StatusLine, Dot } from "@/components/ConnectionStatus";
+import { useKds, DEFAULT_COLORS, hasConnectedDevice } from "@/state/kdsState";
+import { STATUS_ORDER, STATUS_LABEL } from "@/services/mockOrderService";
+import { ConnectionStatus, StatusLine } from "@/components/ConnectionStatus";
 import { DeviceCard } from "@/components/DeviceCard";
 import { ItemAvailability } from "@/components/ItemAvailability";
 import { TokenScreenPreview } from "@/components/TokenScreenPreview";
@@ -16,7 +15,7 @@ import { AuditTrail, WeeklyTrends } from "@/components/Analytics";
 import { playTestBeep } from "@/services/soundService";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Plus, Timer, Printer, ClipboardList, Mail, TrendingUp, History } from "lucide-react";
+import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History } from "lucide-react";
 
 const TABS = [
   { id: "connection", label: "Connection", Icon: Plug },
@@ -68,6 +67,11 @@ const Btn = ({ children, onClick, testId, variant = "default" }) => (
 export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
   const { state, actions } = useKds();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (open && tab === "devices") actions.fetchDevices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, tab]);
   const s = state.settings;
 
   const body = () => {
@@ -81,8 +85,7 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
               </div>
               <div className="text-sm opacity-60 mb-2">{state.station}</div>
               <StatusLine label="Server" ok={state.connection.serverConnected} />
-              <StatusLine label="POS" ok={state.connection.posConnected} />
-              <StatusLine label="Token Screen" ok={state.connection.tokenScreenConnected} />
+              <StatusLine label="POS" ok={hasConnectedDevice(state.devices, "desktop_pos")} />
               <StatusLine
                 label="Real-time Sync"
                 ok={state.connection.serverConnected}
@@ -106,12 +109,33 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
       case "devices":
         return (
           <div className="space-y-3">
+            {state.devices.length === 0 && (
+              <div className="text-xs opacity-55 text-center py-4">
+                No devices paired for this branch yet.
+              </div>
+            )}
             {state.devices.map((d) => (
-              <DeviceCard key={d.id} device={d} onToggle={actions.toggleDevice} />
+              <DeviceCard
+                key={d.id}
+                device={d}
+                onRename={async (id, name) => {
+                  try {
+                    await actions.renameDevice(id, name);
+                    toast.success("Device renamed");
+                  } catch (err) {
+                    toast.error(err?.response?.data?.detail || "Could not rename device");
+                  }
+                }}
+                onDisconnect={async (id) => {
+                  try {
+                    await actions.disconnectDevice(id);
+                    toast.success("Device disconnected");
+                  } catch (err) {
+                    toast.error(err?.response?.data?.detail || "Could not disconnect device");
+                  }
+                }}
+              />
             ))}
-            <Btn testId="add-device-btn" onClick={() => toast.info("Add Device", { description: "Pairing wizard is mocked in demo mode." })}>
-              <span className="flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> Add Device</span>
-            </Btn>
           </div>
         );
       case "station":
@@ -121,7 +145,7 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
               <Switch data-testid="station-filter-toggle" checked={s.stationFilterOn} onCheckedChange={(v) => actions.setSettings({ stationFilterOn: v })} />
             </Row>
             <div className="text-xs font-bold uppercase tracking-widest opacity-55">Current Station: {state.station}</div>
-            {STATIONS.map((st) => (
+            {(state.connection.stations ?? []).map((st) => (
               <button
                 key={st}
                 data-testid={`settings-station-${st.replace(/\s+/g, "-").toLowerCase()}`}
@@ -254,7 +278,10 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
             <div className="bg-white border border-[#E5E7EB] rounded-md p-3 text-sm opacity-70">
               Open a station screen on any tablet or TV — it shows only that station's dishes and stays fully interactive.
             </div>
-            {STATIONS.map((st) => (
+            {(state.connection.stations ?? []).length === 0 && (
+              <div className="text-xs opacity-55">No kitchen stations configured for this branch yet.</div>
+            )}
+            {(state.connection.stations ?? []).map((st) => (
               <Btn
                 key={st}
                 testId={`open-station-${st.replace(/\s+/g, "-").toLowerCase()}`}
@@ -270,9 +297,6 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
       case "token":
         return (
           <div className="space-y-3">
-            <Row label="Token Screen Pair Code" hint={DEMO_TOKEN_CODE} testId="token-pair-code">
-              <Dot ok={state.connection.tokenScreenConnected} />
-            </Row>
             <Btn testId="open-token-screen-btn" onClick={() => window.open("/token", "_blank")}>
               <span className="flex items-center justify-center gap-2"><ExternalLink className="w-4 h-4" /> Open Token Screen</span>
             </Btn>
@@ -289,20 +313,14 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
             <Btn testId="demo-toggle-internet" onClick={() => actions.setConnection({ internet: !state.connection.internet, serverConnected: !state.connection.internet })}>
               Toggle Internet · {state.connection.internet ? "ON" : "OFF"}
             </Btn>
-            <Btn testId="demo-toggle-pos" onClick={() => actions.toggleDevice("pos", !state.connection.posConnected)}>
-              Toggle POS Connection · {state.connection.posConnected ? "ON" : "OFF"}
-            </Btn>
             <Btn testId="demo-toggle-server" onClick={() => actions.setConnection({ serverConnected: !state.connection.serverConnected })}>
               Toggle Server Connection · {state.connection.serverConnected ? "ON" : "OFF"}
-            </Btn>
-            <Btn testId="demo-toggle-token" onClick={() => actions.toggleDevice("token", !state.connection.tokenScreenConnected)}>
-              Toggle Token Screen · {state.connection.tokenScreenConnected ? "ON" : "OFF"}
             </Btn>
             <Btn testId="demo-reset" variant="danger" onClick={async () => { await actions.resetDemo(); toast.success("Demo data reset"); }}>Reset Demo Data</Btn>
             <Btn testId="settings-logout-btn" variant="danger" onClick={() => { actions.setPaired(false); navigate("/setup"); }}>
               <span className="flex items-center justify-center gap-2"><LogOut className="w-4 h-4" /> Logout</span>
             </Btn>
-            <ConnectionStatus connection={state.connection} testId="demo-connection-status" />
+            <ConnectionStatus connection={state.connection} posConnected={hasConnectedDevice(state.devices, "desktop_pos")} testId="demo-connection-status" />
           </div>
         );
       default:

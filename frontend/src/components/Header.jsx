@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useKds } from "@/state/kdsState";
+import { useKds, hasConnectedDevice } from "@/state/kdsState";
 import { ChefProfile } from "@/components/ChefProfile";
 import { BrandMark } from "@/components/BrandMark";
 import { Dot } from "@/components/ConnectionStatus";
@@ -29,6 +29,7 @@ export const Header = ({ onOpenSettings }) => {
   };
 
   const online = state.connection.serverConnected && state.connection.internet;
+  const posConnected = hasConnectedDevice(state.devices, "desktop_pos");
 
   return (
     <header className="bg-white border-b border-[#E5E7EB] px-3 sm:px-5 py-2.5 flex items-center gap-3 shrink-0">
@@ -48,7 +49,7 @@ export const Header = ({ onOpenSettings }) => {
           <Dot ok={state.connection.serverConnected} /> Server: {state.connection.serverConnected ? "Connected" : "Offline"}
         </span>
         <span className="flex items-center gap-1.5 bg-[#F7F7F7] rounded-md px-2.5 py-1.5" data-testid="header-pos-chip">
-          <Dot ok={state.connection.posConnected} /> POS: {state.connection.posConnected ? "Connected" : "Offline"}
+          <Dot ok={posConnected} /> POS: {posConnected ? "Connected" : "Offline"}
         </span>
       </div>
 

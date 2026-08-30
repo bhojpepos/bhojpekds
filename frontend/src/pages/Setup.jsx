@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useKds } from "@/state/kdsState";
 import * as api from "@/services/apiService";
-import { STATIONS } from "@/services/mockOrderService";
 import { unlockAudio } from "@/services/soundService";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, ArrowRight, KeyRound, Link2, Delete, CornerDownLeft } from "lucide-react";
@@ -147,35 +146,44 @@ function ConnectStage({ onConnected }) {
 /* ── Stage 2: Kitchen Station ─────────────────────────────────────────── */
 function StationStage({ initial, stations, onNext }) {
   const [station, setStation] = useState(initial);
-  const list = stations && stations.length ? stations : STATIONS;
+  const list = stations ?? [];
   return (
     <>
       <div className="text-[12px] font-bold text-black/40 tracking-[0.2em] uppercase mb-1.5">Terminal Setup</div>
       <div className="text-[28px] font-extrabold leading-tight tracking-tight mb-1">Select Kitchen Station</div>
       <div className="text-[13px] text-black/55 mb-6">Which station is this screen for?</div>
-      {!stations?.length && (
-        <div className="text-[12px] text-black/45 mb-4 -mt-3">
-          No kitchens configured for this branch yet — showing default stations. Add kitchens from the billing admin panel.
+      {list.length === 0 ? (
+        <div className="text-[13px] text-black/55 mb-8 rounded-lg border border-black/10 bg-black/[0.03] p-4">
+          No kitchen stations are configured for this branch yet. Add kitchens from the
+          billing admin panel, then reconnect this screen — a real station name is
+          required so orders route correctly.
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2 mb-8">
+          {list.map((st) => (
+            <button
+              key={st}
+              data-testid={`setup-station-${st.replace(/\s+/g, "-").toLowerCase()}`}
+              onClick={() => { unlockAudio(); setStation(st); }}
+              className="h-11 px-4 rounded-full text-sm font-bold border transition"
+              style={
+                station === st
+                  ? { background: RED, borderColor: RED, color: "#fff" }
+                  : { background: "#e5e6e1", borderColor: "transparent", color: BLACK }
+              }
+            >
+              {st}
+            </button>
+          ))}
         </div>
       )}
-      <div className="flex flex-wrap gap-2 mb-8">
-        {list.map((st) => (
-          <button
-            key={st}
-            data-testid={`setup-station-${st.replace(/\s+/g, "-").toLowerCase()}`}
-            onClick={() => { unlockAudio(); setStation(st); }}
-            className="h-11 px-4 rounded-full text-sm font-bold border transition"
-            style={
-              station === st
-                ? { background: RED, borderColor: RED, color: "#fff" }
-                : { background: "#e5e6e1", borderColor: "transparent", color: BLACK }
-            }
-          >
-            {st}
-          </button>
-        ))}
-      </div>
-      <button data-testid="station-continue-btn" onClick={() => onNext(station)} className={pillButtonClass} style={{ background: RED }}>
+      <button
+        data-testid="station-continue-btn"
+        onClick={() => onNext(station)}
+        disabled={!station}
+        className={pillButtonClass}
+        style={{ background: RED, opacity: station ? 1 : 0.4 }}
+      >
         Continue <ArrowRight className="w-4 h-4" />
       </button>
     </>
@@ -308,7 +316,6 @@ export default function Setup() {
     actions.setConnection({
       serverConnected: true,
       internet: true,
-      posConnected: true,
       lastSync: "Just now",
       deviceToken: res.deviceToken,
       branchId: res.branchId,
@@ -348,7 +355,7 @@ export default function Setup() {
 
   const handleSessionLost = () => {
     api.setDeviceToken(null);
-    actions.setConnection({ deviceToken: null, branchId: null, tenantId: null, kitchenId: null, stationConfirmed: false, serverConnected: false, posConnected: false });
+    actions.setConnection({ deviceToken: null, branchId: null, tenantId: null, kitchenId: null, stationConfirmed: false, serverConnected: false });
     setConnectedInfo(null);
     toast.error("This screen's pairing was lost — please reconnect.");
     setStage("connect");

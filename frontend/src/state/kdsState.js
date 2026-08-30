@@ -2,7 +2,6 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import * as api from "@/services/apiService";
 import { connectRealtime } from "@/services/realtime";
 import { printTicket } from "@/services/printService";
-import { seedDevices, seedConnection } from "@/services/mockDeviceService";
 import { playAlert } from "@/services/soundService";
 import { NEXT_STATUS, STATUS_ORDER } from "@/services/mockOrderService";
 
@@ -33,6 +32,22 @@ const DEFAULT_SETTINGS = {
 // "Rahul Sharma" placeholder. Empty until someone actually logs in.
 const EMPTY_CHEF = { id: null, name: "", role: "", branch: "", avatar: null };
 
+// Neutral defaults only — no fabricated "connected"/"paired" values. Real
+// values arrive from Setup.jsx's pairing response (restaurant/branch/
+// stations/deviceToken) and from fetchDevices() (device list, which
+// posConnected is derived from at render time — see hasConnectedDevice()).
+const DEFAULT_CONNECTION = {
+  serverConnected: false,
+  internet: true,
+  realtime: false,
+  lastSync: "—",
+  deviceToken: null,
+  restaurant: "",
+  branch: "",
+  server: "",
+  stations: [],
+};
+
 function loadLocal() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
@@ -41,10 +56,10 @@ function loadLocal() {
       station: saved.station || "Main Kitchen",
       settings: { ...DEFAULT_SETTINGS, ...(saved.settings || {}), colors: { ...DEFAULT_COLORS, ...((saved.settings || {}).colors || {}) } },
       chef: { ...EMPTY_CHEF, ...(saved.chef || {}) },
-      devices: saved.devices || seedDevices(),
+      devices: saved.devices || [],
       orders: saved.orders || [],
       menu: saved.menu || [],
-      connection: { ...seedConnection(), ...(saved.connection || {}) },
+      connection: { ...DEFAULT_CONNECTION, ...(saved.connection || {}) },
     };
   } catch {
     return {
@@ -52,13 +67,18 @@ function loadLocal() {
       station: "Main Kitchen",
       settings: DEFAULT_SETTINGS,
       chef: EMPTY_CHEF,
-      devices: seedDevices(),
+      devices: [],
       orders: [],
       menu: [],
-      connection: seedConnection(),
+      connection: DEFAULT_CONNECTION,
     };
   }
 }
+
+// A branch's POS badge is "Connected" only when a real, recently-active POS
+// device is in the fetched devices list — not a locally-toggled boolean.
+export const hasConnectedDevice = (devices, type) =>
+  (devices || []).some((d) => d.type === type && d.status === "connected");
 
 const Ctx = createContext(null);
 
@@ -113,9 +133,9 @@ export function KdsProvider({ children }) {
 
   const markOnline = (ok) =>
     setConnectionState((c) =>
-      c.serverConnected === ok && c.internet === ok && c.posConnected === ok
+      c.serverConnected === ok && c.internet === ok
         ? c
-        : { ...c, serverConnected: ok, internet: ok, posConnected: ok, lastSync: ok ? "Just now" : c.lastSync }
+        : { ...c, serverConnected: ok, internet: ok, lastSync: ok ? "Just now" : c.lastSync }
     );
 
   const fireAlert = useCallback((order) => {
@@ -146,6 +166,21 @@ export function KdsProvider({ children }) {
       return false;
     }
   }, []);
+
+  const fetchDevicesList = useCallback(async () => {
+    const res = await call(() => api.fetchDevices());
+    if (res) setDevices(res);
+    return res;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetched once on load (paired screens only) - not part of the 20s order
+  // poll, since the device list changes far less often. Devices tab / after
+  // rename-disconnect re-fetch manually via actions.fetchDevices.
+  useEffect(() => {
+    if (paired) fetchDevicesList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paired]);
 
   const refreshStats = useCallback(async () => {
     try {
@@ -254,6 +289,24 @@ export function KdsProvider({ children }) {
       setChef: (p) => setChefState((c) => ({ ...c, ...p })),
       refresh,
       refreshStats,
+      fetchDevices: fetchDevicesList,
+
+      // Deliberately NOT routed through call() (which swallows errors as
+      // null) - billing's rename/disconnect are owner/manager-gated
+      // (DeviceController::authorizeDeviceManager), so a chef-role login can
+      // get a real 403 here. Let it throw so SettingsDrawer can toast
+      // billing's actual message instead of a generic failure.
+      renameDevice: async (id, name) => {
+        const res = await api.renameDevice(id, name);
+        await fetchDevicesList();
+        return res;
+      },
+
+      disconnectDevice: async (id) => {
+        const res = await api.disconnectDevice(id);
+        await fetchDevicesList();
+        return res;
+      },
 
       saveConfig: async (patch) => {
         const res = await call(() => api.saveConfig(patch));
@@ -368,13 +421,6 @@ export function KdsProvider({ children }) {
       resetDemo: async () => {
         await call(() => api.resetDemo());
         await refresh();
-      },
-
-      toggleDevice: (id, connected) => {
-        setDevices((prev) => prev.map((d) => (d.id === id ? { ...d, connected } : d)));
-        if (id === "pos") setConnectionState((c) => ({ ...c, posConnected: connected }));
-        if (id === "token") setConnectionState((c) => ({ ...c, tokenScreenConnected: connected }));
-        if (id === "printer") setConnectionState((c) => ({ ...c, printerConnected: connected }));
       },
 
       dismissAlert: () => setAlert(null),

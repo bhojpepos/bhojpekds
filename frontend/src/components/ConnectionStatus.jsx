@@ -17,15 +17,14 @@ export const StatusLine = ({ label, ok, okText = "Connected", badText = "Offline
   </div>
 );
 
-export const ConnectionStatus = ({ connection, testId = "connection-status" }) => (
+export const ConnectionStatus = ({ connection, posConnected = false, testId = "connection-status" }) => (
   <div className="bg-white border border-[#E5E7EB] rounded-md p-4" data-testid={testId}>
     <div className="text-xs font-bold tracking-widest uppercase opacity-55 mb-1">Connection Status</div>
     <StatusLine label="Server" ok={connection.serverConnected} testId="status-server" />
-    <StatusLine label="POS" ok={connection.posConnected} testId="status-pos" />
-    <StatusLine label="Token Screen" ok={connection.tokenScreenConnected} testId="status-token" />
+    <StatusLine label="POS" ok={posConnected} testId="status-pos" />
     <StatusLine
       label="Real-time Sync"
-      ok={connection.serverConnected && connection.posConnected}
+      ok={connection.serverConnected && posConnected}
       okText="Active"
       badText="Local"
       testId="status-sync"

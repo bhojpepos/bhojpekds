@@ -1,5 +1,4 @@
 import React from "react";
-import { STATIONS } from "@/services/mockOrderService";
 import { useKds } from "@/state/kdsState";
 import { useNavigate } from "react-router-dom";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
@@ -59,7 +58,7 @@ export const ChefProfile = ({ onOpenSettings }) => {
             <ChefHat className="w-4 h-4 mr-2" /> Kitchen Station
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="bg-white">
-            {STATIONS.map((s) => (
+            {(state.connection.stations ?? []).map((s) => (
               <DropdownMenuItem key={s} data-testid={`station-opt-${s.replace(/\s+/g, "-").toLowerCase()}`} onClick={() => actions.setStation(s)}>
                 {s} {state.station === s ? "✓" : ""}
               </DropdownMenuItem>

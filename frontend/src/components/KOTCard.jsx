@@ -2,7 +2,6 @@ import React from "react";
 import { ageOf, ageLevel, useKds } from "@/state/kdsState";import { ACTION_LABEL, NEXT_STATUS } from "@/services/mockOrderService";
 import { AlertTriangle, Clock, CheckCircle2, Flame, Bike, ShoppingBag, Utensils, PackageCheck, ChevronUp, Undo2, Check, Printer, ArrowRightLeft, History } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { STATIONS } from "@/services/mockOrderService";
 import { OrderHistoryDialog } from "@/components/Analytics";
 
 const TYPE_META = {
@@ -187,7 +186,7 @@ export const KOTCard = ({ order }) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="bg-white">
               <DropdownMenuLabel className="text-xs">Hand off KOT #{order.kot}</DropdownMenuLabel>
-              {STATIONS.filter((s) => s !== order.station).map((s) => (
+              {(state.connection.stations ?? []).filter((s) => s !== order.station).map((s) => (
                 <DropdownMenuItem
                   key={s}
                   data-testid={`kot-handoff-${order.kot}-${s.replace(/\s+/g, "-").toLowerCase()}`}

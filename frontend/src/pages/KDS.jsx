@@ -70,7 +70,22 @@ export default function KDS() {
         </div>
       )}
 
-      <FilterBar filter={filter} setFilter={setFilter} query={query} setQuery={setQuery} />
+      <FilterBar
+        filter={filter}
+        setFilter={setFilter}
+        query={query}
+        setQuery={setQuery}
+        stations={state.connection.stations}
+        stationFilter={state.settings.stationFilterOn ? state.station : "all"}
+        onStationFilterChange={(value) => {
+          if (value === "all") {
+            actions.setSettings({ stationFilterOn: false });
+          } else {
+            actions.setStation(value);
+            actions.setSettings({ stationFilterOn: true });
+          }
+        }}
+      />
       <RushIndicator />
       <DelayAlertBanner />
 
