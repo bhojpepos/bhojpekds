@@ -1,23 +1,30 @@
 import React, { useEffect } from "react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useNavigate, useParams } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { useKds, DEFAULT_COLORS, hasConnectedDevice } from "@/state/kdsState";
 import { STATUS_ORDER, STATUS_LABEL } from "@/services/mockOrderService";
-import { ConnectionStatus, StatusLine } from "@/components/ConnectionStatus";
+import { StatusLine } from "@/components/ConnectionStatus";
 import { DeviceCard } from "@/components/DeviceCard";
 import { ItemAvailability } from "@/components/ItemAvailability";
 import { TokenScreenPreview } from "@/components/TokenScreenPreview";
 import { PrepInsights } from "@/components/PrepInsights";
+import { ProfileSection } from "@/components/ProfileSection";
 import { PrintQueue, ShiftSummary } from "@/components/KitchenOps";
 import { PrinterConfig, RecapConfig, DelayAlertConfig } from "@/components/OpsConfig";
 import { AuditTrail, WeeklyTrends } from "@/components/Analytics";
 import { playTestBeep } from "@/services/soundService";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
-import { Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv, Bell, Maximize2, RotateCcw, LogOut, Beaker, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History } from "lucide-react";
+import {
+  ArrowLeft, Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv,
+  Bell, Maximize2, RotateCcw, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History,
+} from "lucide-react";
 
-const TABS = [
+// Every Settings section, each its own full-page screen at /settings/:id —
+// previously these were tabs crammed into one small slide-over drawer
+// (SettingsDrawer.jsx, now unused). Shared here so KdsSidebar can list the
+// exact same sections/icons without duplicating this array.
+export const SETTINGS_SECTIONS = [
   { id: "connection", label: "Connection", Icon: Plug },
   { id: "devices", label: "Devices", Icon: MonitorSmartphone },
   { id: "station", label: "Kitchen Station", Icon: ChefHat },
@@ -35,7 +42,6 @@ const TABS = [
   { id: "audit", label: "Audit Trail", Icon: History },
   { id: "stations", label: "Station Screens", Icon: MonitorSmartphone },
   { id: "notifications", label: "Notifications", Icon: Bell },
-  { id: "demo", label: "Demo Controls", Icon: Beaker },
 ];
 
 const Row = ({ label, hint, children, testId }) => (
@@ -64,25 +70,28 @@ const Btn = ({ children, onClick, testId, variant = "default" }) => (
   </button>
 );
 
-export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
-  const { state, actions } = useKds();
+export default function SettingsSectionPage() {
+  const { sectionId } = useParams();
   const navigate = useNavigate();
+  const { state, actions } = useKds();
+  const s = state.settings;
+  const section = SETTINGS_SECTIONS.find((t) => t.id === sectionId);
 
   useEffect(() => {
-    if (open && tab === "devices") actions.fetchDevices();
+    if (sectionId === "devices") actions.fetchDevices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tab]);
-  const s = state.settings;
+  }, [sectionId]);
+
+  useEffect(() => {
+    if (!state.paired) navigate("/setup");
+  }, [state.paired, navigate]);
 
   const body = () => {
-    switch (tab) {
+    switch (sectionId) {
       case "connection":
         return (
           <div className="space-y-3">
             <div className="bg-white border border-[#E5E7EB] rounded-md p-4">
-              <div className="font-head font-extrabold text-lg">
-                Bhoj<span className="text-[#FF3131]">Pe</span> KDS
-              </div>
               <div className="text-sm opacity-60 mb-2">{state.station}</div>
               <StatusLine label="Server" ok={state.connection.serverConnected} />
               <StatusLine label="POS" ok={hasConnectedDevice(state.devices, "desktop_pos")} />
@@ -160,21 +169,7 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
           </div>
         );
       case "profile":
-        return (
-          <div className="space-y-3">
-            <div className="bg-white border border-[#E5E7EB] rounded-md p-4 flex items-center gap-3">
-              <img src={state.chef.avatar} alt={state.chef.name} className="w-16 h-16 rounded-md object-cover" />
-              <div>
-                <div className="font-head font-extrabold text-lg">{state.chef.name}</div>
-                <div className="text-sm opacity-60">{state.chef.role}</div>
-              </div>
-            </div>
-            <Row label="Name" testId="profile-name"><span className="text-sm font-semibold">{state.chef.name}</span></Row>
-            <Row label="Role"><span className="text-sm font-semibold">{state.chef.role}</span></Row>
-            <Row label="Station"><span className="text-sm font-semibold">{state.station}</span></Row>
-            <Row label="Branch"><span className="text-sm font-semibold">{state.chef.branch}</span></Row>
-          </div>
-        );
+        return <ProfileSection />;
       case "sound":
       case "notifications":
         return (
@@ -197,9 +192,6 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
             <Btn testId="test-sound-btn" onClick={() => playTestBeep(s.volume)}>Test Sound</Btn>
             <div className="h-px bg-[#E5E7EB]" />
             <DelayAlertConfig />
-            <Btn testId="simulate-kot-btn" variant="primary" onClick={async () => { const o = await actions.newKot(); toast[o ? "success" : "error"](o ? `KOT #${o.kot} received` : "Server unreachable"); }}>
-              Simulate New KOT
-            </Btn>
           </div>
         );
       case "display":
@@ -304,55 +296,27 @@ export const SettingsDrawer = ({ open, onOpenChange, tab, setTab }) => {
             <div className="text-xs opacity-55">KOT number is used as the token number — no separate token is generated.</div>
           </div>
         );
-      case "demo":
-        return (
-          <div className="space-y-3">
-            <Btn testId="demo-generate-kot" variant="primary" onClick={async () => { const o = await actions.newKot(); toast[o ? "success" : "error"](o ? `KOT #${o.kot} created` : "Server unreachable"); }}>Generate New KOT</Btn>
-            <Btn testId="demo-random-ready" onClick={async () => { const o = await actions.markRandomReady(); toast[o ? "success" : "info"](o ? `KOT #${o.kot} marked ready` : "No cooking orders"); }}>Mark Random Order Ready</Btn>
-            <Btn testId="demo-delayed" onClick={async () => { const o = await actions.simulateDelayed(); toast[o ? "warning" : "info"](o ? `KOT #${o.kot} is now delayed` : "No active orders"); }}>Simulate Delayed Order</Btn>
-            <Btn testId="demo-toggle-internet" onClick={() => actions.setConnection({ internet: !state.connection.internet, serverConnected: !state.connection.internet })}>
-              Toggle Internet · {state.connection.internet ? "ON" : "OFF"}
-            </Btn>
-            <Btn testId="demo-toggle-server" onClick={() => actions.setConnection({ serverConnected: !state.connection.serverConnected })}>
-              Toggle Server Connection · {state.connection.serverConnected ? "ON" : "OFF"}
-            </Btn>
-            <Btn testId="demo-reset" variant="danger" onClick={async () => { await actions.resetDemo(); toast.success("Demo data reset"); }}>Reset Demo Data</Btn>
-            <Btn testId="settings-logout-btn" variant="danger" onClick={() => { actions.setPaired(false); navigate("/setup"); }}>
-              <span className="flex items-center justify-center gap-2"><LogOut className="w-4 h-4" /> Logout</span>
-            </Btn>
-            <ConnectionStatus connection={state.connection} posConnected={hasConnectedDevice(state.devices, "desktop_pos")} testId="demo-connection-status" />
-          </div>
-        );
       default:
-        return null;
+        return (
+          <div className="text-sm opacity-55 text-center py-10">Unknown settings section.</div>
+        );
     }
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="bg-[#F7F7F7] w-full sm:max-w-[560px] p-0 flex flex-col" data-testid="settings-drawer">
-        <SheetHeader className="px-4 py-3 bg-white border-b border-[#E5E7EB]">
-          <SheetTitle className="font-head font-extrabold">Settings</SheetTitle>
-          <SheetDescription className="sr-only">
-            Configure connection, devices, station, sound, display, colors, items and demo controls.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex gap-2 overflow-x-auto thin-scroll px-3 py-2 bg-white border-b border-[#E5E7EB] shrink-0">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              data-testid={`settings-tab-${t.id}`}
-              onClick={() => setTab(t.id)}
-              className={`shrink-0 min-h-[44px] px-3 rounded-md text-xs font-bold border flex items-center gap-1.5 ${
-                tab === t.id ? "bg-[#2C2C2C] text-white border-[#2C2C2C]" : "bg-white border-[#E5E7EB]"
-              }`}
-            >
-              <t.Icon className="w-4 h-4" /> {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex-1 overflow-y-auto thin-scroll p-4">{body()}</div>
-      </SheetContent>
-    </Sheet>
+    <div className="h-screen flex flex-col bg-[#F7F7F7]">
+      <header className="px-4 py-3 flex items-center gap-3 bg-white border-b border-[#E5E7EB] shrink-0">
+        <button
+          data-testid="settings-back-btn"
+          onClick={() => navigate("/")}
+          className="min-h-[40px] min-w-[40px] rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7] flex items-center justify-center text-[#2C2C2C]"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        {section && <section.Icon className="w-5 h-5 text-[#FF3131]" />}
+        <h1 className="font-head font-extrabold text-lg text-[#1A1A1A]">{section?.label || "Settings"}</h1>
+      </header>
+      <div className={`flex-1 overflow-y-auto thin-scroll p-4 w-full ${sectionId === "items" ? "" : "max-w-2xl mx-auto"}`}>{body()}</div>
+    </div>
   );
-};
+}

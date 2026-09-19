@@ -1,21 +1,33 @@
 import React from "react";
-import { ageOf, ageLevel, useKds } from "@/state/kdsState";import { ACTION_LABEL, NEXT_STATUS } from "@/services/mockOrderService";
-import { AlertTriangle, Clock, CheckCircle2, Flame, Bike, ShoppingBag, Utensils, PackageCheck, ChevronUp, Undo2, Check, Printer, ArrowRightLeft, History } from "lucide-react";
+import { ageOf, ageLevel, useKds } from "@/state/kdsState";
+import { ACTION_LABEL } from "@/services/mockOrderService";
+import { AlertTriangle, Clock, CheckCircle2, Flame, ChevronUp, Undo2, Printer, ArrowRightLeft, History, Utensils, ShoppingBag, Bike, BedDouble } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { OrderHistoryDialog } from "@/components/Analytics";
 
 const TYPE_META = {
-  "dine-in": { label: "DINE-IN", Icon: Utensils },
-  takeaway: { label: "TAKEAWAY", Icon: ShoppingBag },
-  delivery: { label: "DELIVERY", Icon: Bike },
-  pickup: { label: "PICKUP", Icon: PackageCheck },
+  "dine-in": { label: "Dine In", Icon: Utensils },
+  takeaway: { label: "Takeaway", Icon: ShoppingBag },
+  delivery: { label: "Delivery", Icon: Bike },
+  pickup: { label: "Pickup", Icon: ShoppingBag },
+  // Real order_type from billing (hotel_room_id-based QR orders) — see
+  // RoomQrBrowserController::storeOrder(), relayed in via
+  // App\Listeners\RelayOrderToKds (wired directly from OrderService,
+  // 2026-09-18 — EventServiceProvider itself is never registered).
+  "room-service": { label: "Room Service", Icon: BedDouble },
 };
 
-const TIMER_STYLE = {
-  fresh: { bg: "#ECFDF5", fg: "#047857", Icon: Clock, label: "ON TIME" },
-  warning: { bg: "#FFF7ED", fg: "#B45309", Icon: AlertTriangle, label: "WARNING" },
-  delayed: { bg: "#FEF2F2", fg: "#DC2626", Icon: Flame, label: "DELAYED" },
+// Channel the order was actually placed through — distinct from TYPE_META
+// (which order is doesn't say who/what created it). Only rendered when it
+// tells the kitchen something a plain counter order wouldn't already imply;
+// no badge for the ordinary in-house POS case.
+const SOURCE_LABEL = {
+  online_website: "ONLINE",
+  captain_app: "CAPTAIN APP",
+  room_service: "ROOM QR",
 };
+
+const TIMER_ICON = { fresh: Clock, warning: AlertTriangle, delayed: Flame };
 
 const PRIORITY = {
   normal: null,
@@ -28,12 +40,27 @@ export const KOTCard = ({ order }) => {
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const age = ageOf(order, now);
   const level = ageLevel(age.seconds, state.settings.slaMinutes * 60);
-  const timer = TIMER_STYLE[level];
+  const TimerIcon = TIMER_ICON[level];
   const type = TYPE_META[order.type] || TYPE_META["dine-in"];
   const statusColor = state.settings.colors[order.status];
   const pr = PRIORITY[order.priority];
   const isDone = order.status === "completed";
   const doneCount = order.items.filter((i) => i.done).length;
+  // The type label is always shown now; this is the one extra piece of
+  // context worth a kitchen/counter glance for that specific order type —
+  // table for dine-in/room-service, pickup time for pickup/takeaway (only
+  // ever set for a customer-app takeaway order today), customer name for
+  // delivery — falling back to the order number when none of those apply.
+  const context = order.table
+    ? order.table
+    : (order.type === "pickup" || order.type === "takeaway") && order.pickupAt
+      ? new Date(order.pickupAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
+      : order.type === "delivery" && order.customerName
+        ? order.customerName
+        : order.refNo
+          ? `#${order.refNo}`
+          : null;
+  const sourceLabel = SOURCE_LABEL[order.source];
 
   const cyclePriority = () => {
     const seq = ["normal", "high", "urgent"];
@@ -43,15 +70,13 @@ export const KOTCard = ({ order }) => {
   return (
     <div
       data-testid={`kot-card-${order.kot}`}
-      className="kot-enter relative bg-white rounded-md border overflow-hidden"
+      className="kot-enter bg-white rounded-md border overflow-hidden shadow-sm"
       style={{ borderColor: pr ? pr.color : "#E5E7EB", borderWidth: pr ? 2 : 1 }}
     >
-      <div className="absolute left-0 top-0 bottom-0 w-[6px]" style={{ background: statusColor }} />
-
       {pr && (
         <div
           data-testid={`kot-priority-${order.kot}`}
-          className="flex items-center gap-1.5 pl-4 pr-3 py-1 text-white k-note"
+          className="flex items-center gap-1.5 px-3 py-1 text-white k-note"
           style={{ background: pr.color }}
         >
           <ChevronUp className="w-4 h-4" />
@@ -59,129 +84,119 @@ export const KOTCard = ({ order }) => {
         </div>
       )}
 
-      <div className="pl-4 pr-3 sm:pr-4 pt-3 pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="k-token-label">KOT / TOKEN</div>
-            <div className="k-token" data-testid={`kot-number-${order.kot}`}>
-              {order.kot}
-            </div>
+      {/* ── Ticket header: whole bar tinted by live status (red=new,
+          yellow=cooking, green=ready) — the color itself is the at-a-glance
+          signal, same language as the reference board. Type icon + context
+          on top, order # / time / elapsed underneath. ── */}
+      <div className="px-3 pt-2.5 pb-2 space-y-1.5 text-white" style={{ background: statusColor }}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0" data-testid={`kot-type-${order.kot}`}>
+            <type.Icon className="w-4 h-4 shrink-0 opacity-90" />
+            <span className="k-meta font-bold truncate">
+              {context || type.label}
+            </span>
           </div>
-          <div
-            data-testid={`kot-timer-${order.kot}`}
-            className="rounded-md px-2.5 py-1.5 flex flex-col items-end"
-            style={{ background: timer.bg, color: timer.fg }}
-          >
-            <div className="flex items-center gap-1.5">
-              <timer.Icon className={`w-4 h-4 ${level === "delayed" ? "blink-soft" : ""}`} />
-              <span className="k-timer">{age.text}</span>
-            </div>
-            <span className="text-[10px] font-bold tracking-wider">{timer.label}</span>
-          </div>
-        </div>
-
-        <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F3F4F6] text-[#2C2C2C] px-2 py-1 k-meta">
-            <type.Icon className="w-4 h-4" />
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-white/50 shrink-0">
             {type.label}
           </span>
-          {(order.table || order.refNo) && (
-            <span className="rounded-md px-2 py-1 k-meta bg-[#2C2C2C] text-white">{order.table || order.refNo}</span>
-          )}
-          <span className="k-meta opacity-60">{order.station}</span>
-          {order.handoffs?.length > 0 && (
-            <span data-testid={`kot-handoff-tag-${order.kot}`} className="k-meta text-[#2563EB] bg-[#EFF6FF] rounded px-2 py-1">
-              moved from {order.handoffs[order.handoffs.length - 1].from}
-            </span>
-          )}
-          {doneCount > 0 && (
-            <span data-testid={`kot-progress-${order.kot}`} className="k-meta text-[#047857] bg-[#ECFDF5] rounded px-2 py-1">
-              {doneCount}/{order.items.length} done
-            </span>
-          )}
         </div>
-
-        <div className="mt-3 border-t border-b border-[#F0F0F0] py-2.5 space-y-2">
-          {order.items.map((i, idx) => (
-            <div key={idx} data-testid={`kot-${order.kot}-item-${idx}`}>
-              <button
-                data-testid={`kot-${order.kot}-item-tick-${idx}`}
-                onClick={() => actions.toggleItemDone(order.id, idx, !i.done)}
-                className="w-full text-left flex items-start gap-2.5 rounded hover:bg-[#FAFAFA] py-0.5"
-              >
-                <span
-                  className="mt-0.5 w-6 h-6 shrink-0 rounded border flex items-center justify-center"
-                  style={{
-                    borderColor: i.done ? "#16A34A" : "#D4D4D8",
-                    background: i.done ? "#16A34A" : "#FFFFFF",
-                  }}
-                >
-                  {i.done && <Check className="w-4 h-4 text-white" />}
-                </span>
-                <span className={`k-item-qty shrink-0 ${i.done ? "opacity-40" : "text-[#FF3131]"}`}>{i.qty}×</span>
-                <span className={`k-item-name ${i.done ? "line-through opacity-40" : ""}`}>{i.name}</span>
-              </button>
-              {i.note && (
-                <div className={`k-note mt-1 ml-[54px] text-[#B45309] bg-[#FFFBEB] rounded px-2 py-1 inline-block ${i.done ? "opacity-40" : ""}`}>
-                  {i.note}
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="flex items-center justify-between gap-2">
+          <span className="k-note text-white/85" data-testid={`kot-number-${order.kot}`}>
+            Order #{order.kot}
+            {sourceLabel ? ` · ${sourceLabel}` : ""}
+          </span>
+          <div className="flex items-center gap-1 shrink-0" data-testid={`kot-timer-${order.kot}`}>
+            <TimerIcon className={`w-3.5 h-3.5 ${level === "delayed" ? "blink-soft" : "opacity-85"}`} />
+            <span className="k-note font-bold tabular-nums">{age.text}</span>
+          </div>
         </div>
+      </div>
 
-        {order.note && (
-          <div className="mt-2.5 k-note text-[#FF3131] bg-[#FEF2F2] rounded px-2 py-1.5">Note: {order.note}</div>
+      <div className="flex items-center justify-between gap-2 px-3 py-1 bg-[#FAFAFA] border-b border-[#F0F0F0]" data-testid={`kot-progress-${order.kot}`}>
+        <span className="k-note opacity-55">{doneCount}/{order.items.length} items done</span>
+        <span className="k-note opacity-55">{order.station}</span>
+      </div>
+
+      {order.handoffs?.length > 0 && (
+        <div data-testid={`kot-handoff-tag-${order.kot}`} className="k-note text-[#2563EB] bg-[#EFF6FF] px-3 py-1 text-center">
+          moved from {order.handoffs[order.handoffs.length - 1].from}
+        </div>
+      )}
+
+      {/* ── Item list — tap a line to strike it done, modifiers in italic gray ── */}
+      <div className="px-3 py-2 space-y-2">
+        {order.items.map((i, idx) => (
+          <button
+            key={idx}
+            data-testid={`kot-${order.kot}-item-${idx}`}
+            onClick={() => actions.toggleItemDone(order.id, idx, !i.done)}
+            className="w-full text-left block rounded hover:bg-[#FAFAFA] py-0.5"
+          >
+            <span className={`k-item-qty ${i.done ? "opacity-35" : "text-[#111]"}`}>{i.qty}x </span>
+            <span className={`k-item-name ${i.done ? "line-through opacity-35" : "text-[#111]"}`}>{i.name}</span>
+            {i.note && (
+              <div className={`k-note italic mt-0.5 ${i.done ? "opacity-35 line-through" : "text-[#6B7280]"}`}>
+                {i.note}
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {order.note && (
+        <div className="mx-3 mb-2 k-note font-extrabold text-[#DC2626]">NOTE: {order.note}</div>
+      )}
+
+      {/* ── Primary action ── */}
+      <div className="px-3 pb-2.5">
+        {isDone ? (
+          <button
+            data-testid={`kot-done-btn-${order.kot}`}
+            onClick={() => actions.removeOrder(order.id)}
+            className="k-action w-full rounded-md text-white flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.99]"
+            style={{ background: state.settings.colors.completed }}
+          >
+            <CheckCircle2 className="w-5 h-5" /> {ACTION_LABEL.completed}
+          </button>
+        ) : (
+          <button
+            data-testid={`kot-action-btn-${order.kot}`}
+            onClick={() => actions.advance(order.id)}
+            className="k-action w-full rounded-md text-white hover:brightness-95 active:scale-[0.99]"
+            style={{ background: "var(--bhoj-primary)" }}
+          >
+            {ACTION_LABEL[order.status]}
+          </button>
         )}
 
-        <div className="mt-3 flex gap-2">
-          {isDone ? (
-            <button
-              data-testid={`kot-done-btn-${order.kot}`}
-              onClick={() => actions.removeOrder(order.id)}
-              className="k-action flex-1 rounded-md text-white flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.99]"
-              style={{ background: state.settings.colors.completed }}
-            >
-              <CheckCircle2 className="w-5 h-5" /> {ACTION_LABEL.completed}
-            </button>
-          ) : (
-            <button
-              data-testid={`kot-action-btn-${order.kot}`}
-              onClick={() => actions.advance(order.id)}
-              className="k-action flex-1 rounded-md text-white hover:brightness-95 active:scale-[0.99]"
-              style={{ background: state.settings.colors[NEXT_STATUS[order.status]] }}
-            >
-              {ACTION_LABEL[order.status]}
-            </button>
-          )}
+        {/* ── Secondary actions — condensed to icon-only, kept fully functional ── */}
+        <div className="mt-2 flex items-center gap-1.5">
           {order.status !== "new" && (
             <button
               data-testid={`kot-recall-btn-${order.kot}`}
               onClick={() => actions.recall(order.id)}
               title="Recall to previous status"
-              className="k-action px-3 rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7] text-[#2C2C2C]"
+              className="min-h-[36px] px-2.5 rounded border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7] text-[#2C2C2C]"
             >
-              <Undo2 className="w-5 h-5" />
+              <Undo2 className="w-4 h-4" />
             </button>
           )}
           <button
             data-testid={`kot-priority-btn-${order.kot}`}
             onClick={cyclePriority}
             title="Change priority"
-            className="k-action px-3 rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7] text-[#2C2C2C]"
+            className="min-h-[36px] px-2.5 rounded border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7] text-[#2C2C2C]"
           >
-            <ChevronUp className="w-5 h-5" />
+            <ChevronUp className="w-4 h-4" />
           </button>
-        </div>
-
-        <div className="mt-2 flex gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 data-testid={`kot-handoff-btn-${order.kot}`}
-                className="flex-1 min-h-[44px] rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7] text-xs font-bold flex items-center justify-center gap-1.5"
+                title="Move station"
+                className="min-h-[36px] px-2.5 rounded border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7] text-[#2C2C2C]"
               >
-                <ArrowRightLeft className="w-4 h-4" /> MOVE STATION
+                <ArrowRightLeft className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="bg-white">
@@ -201,7 +216,7 @@ export const KOTCard = ({ order }) => {
             data-testid={`kot-print-btn-${order.kot}`}
             onClick={() => actions.printKot(order.id)}
             title="Print ticket"
-            className="min-h-[44px] px-3 rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7]"
+            className="min-h-[36px] px-2.5 rounded border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7]"
           >
             <Printer className="w-4 h-4" />
           </button>
@@ -209,7 +224,7 @@ export const KOTCard = ({ order }) => {
             data-testid={`kot-history-btn-${order.kot}`}
             onClick={() => setHistoryOpen(true)}
             title="Order history"
-            className="min-h-[44px] px-3 rounded-md border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7]"
+            className="min-h-[36px] px-2.5 rounded border border-[#E5E7EB] bg-white hover:bg-[#F7F7F7]"
           >
             <History className="w-4 h-4" />
           </button>

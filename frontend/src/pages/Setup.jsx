@@ -4,8 +4,9 @@ import { useKds } from "@/state/kdsState";
 import * as api from "@/services/apiService";
 import { unlockAudio } from "@/services/soundService";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, ArrowRight, KeyRound, Link2, Delete, CornerDownLeft } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowRight, KeyRound, Link2, Delete, CornerDownLeft, RefreshCw } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const RED = "#FF3131";
 const BLACK = "#111111";
@@ -23,9 +24,6 @@ const PageShell = ({ children, showImage }) => (
     <header className="h-16 flex items-center px-4 sm:px-8 shrink-0">
       <div className="flex items-center gap-3">
         <BrandMark size={36} />
-        <div className="font-extrabold text-lg tracking-tight">
-          Bhoj<span style={{ color: RED }}>Pe</span> KDS
-        </div>
       </div>
     </header>
     {showImage ? (
@@ -191,10 +189,11 @@ function StationStage({ initial, stations, onNext }) {
 }
 
 /* ── Stage 3: Passcode login ──────────────────────────────────────────── */
-function PasscodeStage({ onLoggedIn, onSessionLost }) {
+function PasscodeStage({ branchLabel, onLoggedIn, onSessionLost, onChangeBranch }) {
   const [code, setCode] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [confirmChangeBranch, setConfirmChangeBranch] = useState(false);
 
   // Billing passcodes are 4-6 digits (see AuthController's validation and
   // create.blade.php's "e.g. 1234 (4-6 digits)" hint) - not fixed at 4, so
@@ -295,6 +294,41 @@ function PasscodeStage({ onLoggedIn, onSessionLost }) {
           {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <CornerDownLeft className="w-[26px] h-[26px]" />}
         </button>
       </div>
+
+      {onChangeBranch && (
+        <button
+          type="button"
+          data-testid="change-branch-btn"
+          onClick={() => setConfirmChangeBranch(true)}
+          disabled={busy}
+          className="mt-6 flex items-center gap-1.5 text-[12px] font-semibold text-black/45 hover:text-black/70 transition disabled:opacity-40"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Change Branch{branchLabel ? ` (${branchLabel})` : ""}
+        </button>
+      )}
+
+      <AlertDialog open={confirmChangeBranch} onOpenChange={setConfirmChangeBranch}>
+        <AlertDialogContent className="bg-white" data-testid="change-branch-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change branch on this screen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This screen will disconnect from {branchLabel || "the current branch"} — you&apos;ll
+              need a fresh Sync Code and POS Pair Code to connect it to a different branch.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="change-branch-cancel-btn">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="change-branch-confirm-btn"
+              onClick={onChangeBranch}
+              className="bg-[#FF3131] hover:bg-[#e02b2b]"
+            >
+              Disconnect &amp; Change
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -361,6 +395,20 @@ export default function Setup() {
     setStage("connect");
   };
 
+  // Deliberate, user-initiated version of handleSessionLost above — same
+  // reset, just a neutral toast instead of an error one. Re-pairing (the
+  // Connect stage this lands on) reuses the same device_identifier this
+  // browser already has, so it updates this screen's existing pairing to
+  // the new branch rather than creating a duplicate.
+  const handleChangeBranch = () => {
+    api.setDeviceToken(null);
+    actions.setConnection({ deviceToken: null, branchId: null, tenantId: null, kitchenId: null, stationConfirmed: false, serverConnected: false });
+    setConnectedInfo(null);
+    setPickedStation(null);
+    toast.success("Disconnected — connect this screen to a different branch.");
+    setStage("connect");
+  };
+
   return (
     <PageShell showImage={stage === "passcode"}>
       {stage === "connect" && <ConnectStage onConnected={handleConnected} />}
@@ -369,7 +417,12 @@ export default function Setup() {
       )}
       {stage === "passcode" && (
         <div className="bg-white/70 rounded-[20px] p-6">
-          <PasscodeStage onLoggedIn={handleLoggedIn} onSessionLost={handleSessionLost} />
+          <PasscodeStage
+            branchLabel={state.connection.branch || state.connection.restaurant}
+            onLoggedIn={handleLoggedIn}
+            onSessionLost={handleSessionLost}
+            onChangeBranch={handleChangeBranch}
+          />
         </div>
       )}
       {(connectedInfo || stage !== "connect") && (

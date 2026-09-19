@@ -125,7 +125,3 @@ export const fetchRush = () => api.get("/stats/rush").then((r) => r.data);
 export const fetchShift = (hours = 12) =>
   api.get("/stats/shift", { params: { hours } }).then((r) => r.data);
 
-export const posCreateRandomOrder = (station) =>
-  api.post("/pos/orders/random", null, { params: station ? { station } : {} }).then((r) => r.data);
-export const resetDemo = () => api.post("/demo/reset").then((r) => r.data);
-export const delayOrder = (id) => api.post(`/demo/delay/${id}`).then((r) => r.data);

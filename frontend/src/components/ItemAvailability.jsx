@@ -1,25 +1,16 @@
 import React, { useState } from "react";
-import { Switch } from "@/components/ui/switch";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useKds } from "@/state/kdsState";
 import { toast } from "sonner";
-import { CheckCircle2, Search } from "lucide-react";
+import { Search, Ban } from "lucide-react";
 
 export const ItemAvailability = () => {
   const { state, actions } = useKds();
-  const [pending, setPending] = useState(null);
   const [q, setQ] = useState("");
-  const [synced, setSynced] = useState({});
 
-  const apply = async (item, available) => {
-    await actions.setItemAvailability(item.id, available);
-    setSynced((s) => ({ ...s, [item.id]: true }));
-    toast.success(`${item.name} · ${available ? "Available" : "OUT OF STOCK"}`, { description: "Synced to POS" });
-  };
-
-  const onToggle = (item, next) => {
-    if (!next) setPending(item);
-    else apply(item, true);
+  const toggle = async (item) => {
+    const next = !item.available;
+    await actions.setItemAvailability(item.id, next);
+    toast.success(`${item.name} · ${next ? "Available" : "OUT OF STOCK"}`, { description: "Synced to POS" });
   };
 
   const list = state.menu.filter((m) => m.name.toLowerCase().includes(q.toLowerCase()));
@@ -37,61 +28,40 @@ export const ItemAvailability = () => {
         />
       </div>
 
-      {list.map((m) => (
-        <div
-          key={m.id}
-          data-testid={`item-row-${m.id}`}
-          className="flex items-center gap-3 bg-white border rounded-md p-3"
-          style={{ borderColor: m.available ? "#E5E7EB" : "#FF3131" }}
-        >
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold truncate">{m.name}</div>
-            <div className="flex items-center gap-2 mt-0.5">
+      <div className="text-xs opacity-55">Tap an item to mark it out of stock — tap again to bring it back.</div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+        {list.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            data-testid={`item-row-${m.id}`}
+            onClick={() => toggle(m)}
+            className="relative text-left bg-white border rounded-md p-3 min-h-[84px] flex flex-col justify-between hover:brightness-97 active:scale-[0.98]"
+            style={{ borderColor: m.available ? "#E5E7EB" : "#FF3131", opacity: m.available ? 1 : 0.7 }}
+          >
+            {!m.available && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/40 rounded-md pointer-events-none">
+                <Ban className="w-8 h-8 text-[#FF3131]/70" />
+              </div>
+            )}
+            <div className={`text-sm font-bold truncate ${!m.available ? "line-through" : ""}`}>{m.name}</div>
+            <div className="flex items-center justify-between gap-1 mt-1">
+              <span className="text-[10px] opacity-50 truncate">{m.station}</span>
               <span
                 data-testid={`item-status-${m.id}`}
-                className="text-[11px] font-extrabold tracking-wider rounded px-1.5 py-0.5"
+                className="text-[10px] font-extrabold tracking-wider rounded px-1.5 py-0.5 shrink-0"
                 style={{
                   background: m.available ? "#ECFDF5" : "#FEF2F2",
                   color: m.available ? "#047857" : "#DC2626",
                 }}
               >
-                {m.available ? "AVAILABLE" : "OUT OF STOCK"}
+                {m.available ? "IN STOCK" : "OUT"}
               </span>
-              <span className="text-[11px] opacity-50">{m.station}</span>
-              {synced[m.id] && (
-                <span className="text-[11px] text-[#16A34A] flex items-center gap-1" data-testid={`item-synced-${m.id}`}>
-                  <CheckCircle2 className="w-3 h-3" /> Synced to POS
-                </span>
-              )}
             </div>
-          </div>
-          <Switch data-testid={`item-toggle-${m.id}`} checked={m.available} onCheckedChange={(v) => onToggle(m, v)} />
-        </div>
-      ))}
-
-      <AlertDialog open={!!pending} onOpenChange={(o) => !o && setPending(null)}>
-        <AlertDialogContent className="bg-white" data-testid="oos-confirm-dialog">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Mark {pending?.name} as Out of Stock?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The item stays on the menu — only its availability changes and syncs to the POS.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="oos-cancel-btn">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              data-testid="oos-confirm-btn"
-              className="bg-[#FF3131] hover:bg-[#e02a2a]"
-              onClick={() => {
-                apply(pending, false);
-                setPending(null);
-              }}
-            >
-              Confirm
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </button>
+        ))}
+      </div>
     </div>
   );
 };

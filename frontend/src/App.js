@@ -6,6 +6,7 @@ import Setup from "@/pages/Setup";
 import KDS from "@/pages/KDS";
 import StationScreen from "@/pages/StationScreen";
 import TokenScreenPage from "@/pages/TokenScreenPage";
+import SettingsSectionPage from "@/pages/SettingsSectionPage";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/setup" element={<Setup />} />
           <Route path="/token" element={<TokenScreenPage />} />
           <Route path="/station/:stationSlug" element={<StationScreen />} />
+          <Route path="/settings/:sectionId" element={<SettingsSectionPage />} />
         </Routes>
       </BrowserRouter>
       <Toaster position="bottom-center" />

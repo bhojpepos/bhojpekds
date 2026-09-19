@@ -3,13 +3,14 @@ import { Search, X } from "lucide-react";
 
 const FILTERS = [
   { id: "all", label: "All" },
-  { id: "new", label: "New" },
-  { id: "cooking", label: "Cooking" },
-  { id: "ready", label: "Ready" },
   { id: "delayed", label: "Delayed" },
   { id: "dine-in", label: "Dine-in" },
   { id: "takeaway", label: "Takeaway" },
   { id: "delivery", label: "Delivery" },
+  // Hotel guest QR orders (order_type='room_service' in billing) — lets one
+  // shared screen isolate just room orders instead of needing a second
+  // physical device, when the hotel and restaurant share a branch.
+  { id: "room-service", label: "Room Service" },
 ];
 
 // stations: real per-branch kitchens (state.connection.stations, from

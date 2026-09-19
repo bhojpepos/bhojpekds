@@ -8,7 +8,7 @@ import { RushIndicator } from "@/components/RushIndicator";
 import { DelayAlertBanner } from "@/components/DelayAlertBanner";
 import { StatusColumn } from "@/components/StatusColumn";
 import { NewOrderAlert } from "@/components/NewOrderAlert";
-import { SettingsDrawer } from "@/components/SettingsDrawer";
+import { KdsSidebar } from "@/components/KdsSidebar";
 import { UndoBar } from "@/components/UndoBar";
 import { WifiOff } from "lucide-react";
 
@@ -17,8 +17,7 @@ export default function KDS() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [tab, setTab] = useState("connection");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileStatus, setMobileStatus] = useState("new");
 
   const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 768);
@@ -34,17 +33,11 @@ export default function KDS() {
     return () => mq.removeEventListener("change", on);
   }, []);
 
-  const openSettings = (t) => {
-    setTab(t || "connection");
-    setSettingsOpen(true);
-  };
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return state.orders.filter((o) => {
       if (state.settings.stationFilterOn && o.station !== state.station) return false;
-      if (["new", "cooking", "ready"].includes(filter) && o.status !== filter) return false;
-      if (["dine-in", "takeaway", "delivery"].includes(filter) && o.type !== filter) return false;
+      if (["dine-in", "takeaway", "delivery", "room-service"].includes(filter) && o.type !== filter) return false;
       if (filter === "delayed" && ageLevel(ageOf(o, now).seconds, state.settings.slaMinutes * 60) !== "delayed") return false;
       if (q) {
         const hay = `${o.kot} ${o.table || ""} ${o.refNo || ""}`.toLowerCase();
@@ -60,7 +53,7 @@ export default function KDS() {
 
   return (
     <div className={`kds-scope mode-${mode} h-screen flex flex-col bg-[#F7F7F7] overflow-hidden`} data-testid="kds-screen">
-      <Header onOpenSettings={openSettings} />
+      <Header onOpenSidebar={() => setSidebarOpen(true)} />
 
       {offline && (
         <div className="flex items-center gap-2 px-4 py-2 bg-[#FFFBEB] border-b border-[#FDE68A] text-[#92400E] text-sm font-semibold" data-testid="offline-banner">
@@ -123,7 +116,7 @@ export default function KDS() {
 
       <NewOrderAlert />
       <UndoBar />
-      <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} tab={tab} setTab={setTab} />
+      <KdsSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
     </div>
   );
 }

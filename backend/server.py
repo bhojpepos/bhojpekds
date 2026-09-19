@@ -16,6 +16,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from models import (
     AvailabilityUpdate,
+    BillingItemStatusUpdate,
     ConfigUpdate,
     ItemDoneUpdate,
     KdsConfig,
@@ -49,23 +50,13 @@ logger = logging.getLogger(__name__)
 
 STATIONS = ["Main Kitchen", "Tandoor", "Chinese", "Bakery", "Dessert", "Bar", "Pizza"]
 
-SEED_MENU = [
-    ("Paneer Tikka", "Tandoor", True),
-    ("Butter Naan", "Tandoor", True),
-    ("Dal Makhani", "Main Kitchen", True),
-    ("Chicken Biryani", "Main Kitchen", False),
-    ("Tandoori Roti", "Tandoor", True),
-    ("Veg Hakka Noodles", "Chinese", True),
-    ("Manchurian", "Chinese", True),
-    ("Farmhouse Pizza", "Pizza", True),
-    ("Cold Coffee", "Bar", True),
-    ("Masala Dosa", "Main Kitchen", True),
-    ("Veg Burger", "Main Kitchen", True),
-    ("French Fries", "Main Kitchen", True),
-]
-
 STATUS_FLOW = ["new", "cooking", "ready", "completed"]
 STAMP = {"cooking": "startedAt", "ready": "readyAt", "completed": "completedAt"}
+
+# Reverse half of KDS<->POS kitchen-status sync - only forward transitions
+# push back into billing (order_items.kitchen_status has no analog for "new"
+# or bhojpekds's local-only "completed"/ticket-cleared state).
+BILLING_KITCHEN_STATUS = {"cooking": "preparing", "ready": "ready"}
 
 
 # ---------------- realtime hub ----------------
@@ -126,81 +117,11 @@ async def next_kot() -> int:
     return 1024 + int(doc["seq"]) - 1
 
 
-# ---------------- seed ----------------
-def seed_orders_payload():
-    def o(kot, typ, status, age_min, station, items, table=None, refNo=None, priority="normal", note=None, prep_min=None):
-        created = datetime.now(timezone.utc).timestamp() - age_min * 60
-        started = None
-        ready = None
-        completed = None
-        if status in ("cooking", "ready", "completed"):
-            started = created + 60
-        if status in ("ready", "completed"):
-            ready = started + prep_min * 60 if prep_min else created + age_min * 30
-        if status == "completed":
-            completed = (ready + 120) if prep_min else created + age_min * 45
-        iso = lambda t: datetime.fromtimestamp(t, timezone.utc).isoformat() if t else None
-        return Order(
-            kot=kot, type=typ, table=table, refNo=refNo, status=status, priority=priority,
-            station=station, note=note, items=[OrderItem(**i) for i in items],
-            createdAt=iso(created), startedAt=iso(started), readyAt=iso(ready), completedAt=iso(completed),
-        ).to_mongo()
-
-    return [
-        o(1024, "dine-in", "new", 2.3, "Main Kitchen",
-          [{"qty": 2, "name": "Paneer Tikka", "note": "Extra Spicy"}, {"qty": 1, "name": "Butter Naan", "note": "No Butter"}, {"qty": 1, "name": "Dal Makhani"}],
-          table="Table 12", note="Serve together"),
-        o(1025, "takeaway", "new", 0.8, "Main Kitchen",
-          [{"qty": 1, "name": "Veg Burger"}, {"qty": 2, "name": "French Fries"}], priority="high"),
-        o(1026, "delivery", "new", 5.4, "Chinese",
-          [{"qty": 2, "name": "Veg Hakka Noodles", "note": "Less Oil"}, {"qty": 1, "name": "Manchurian"}], refNo="#D184"),
-        o(1027, "dine-in", "cooking", 6.8, "Tandoor",
-          [{"qty": 3, "name": "Tandoori Roti"}, {"qty": 1, "name": "Dal Makhani", "note": "Jain"}], table="Table 4"),
-        o(1028, "dine-in", "cooking", 9.8, "Main Kitchen",
-          [{"qty": 1, "name": "Masala Dosa"}, {"qty": 2, "name": "Cold Coffee"}], table="Table 9",
-          priority="urgent", note="Guest waiting at counter"),
-        o(1029, "takeaway", "cooking", 12.5, "Pizza",
-          [{"qty": 2, "name": "Farmhouse Pizza", "note": "Extra cheese"}]),
-        o(1030, "pickup", "cooking", 1.6, "Main Kitchen",
-          [{"qty": 1, "name": "Veg Burger", "note": "No Onion"}, {"qty": 1, "name": "Cold Coffee"}], refNo="#P77"),
-        o(1018, "dine-in", "ready", 10.6, "Main Kitchen", [{"qty": 2, "name": "Masala Dosa"}], table="Table 2"),
-        o(1022, "takeaway", "ready", 5.0, "Tandoor", [{"qty": 4, "name": "Butter Naan"}, {"qty": 1, "name": "Paneer Tikka"}]),
-        o(1019, "delivery", "completed", 15.0, "Main Kitchen", [{"qty": 1, "name": "Dal Makhani"}, {"qty": 2, "name": "Tandoori Roti"}], refNo="#D171"),
-        o(1020, "dine-in", "completed", 19.6, "Chinese", [{"qty": 1, "name": "Veg Hakka Noodles"}], table="Table 7"),
-        o(1021, "takeaway", "completed", 22.0, "Bakery", [{"qty": 2, "name": "French Fries"}]),
-        o(1031, "dine-in", "completed", 25.0, "Main Kitchen", [{"qty": 1, "name": "Veg Burger"}], table="Table 15"),
-        o(1032, "pickup", "completed", 28.3, "Bar", [{"qty": 3, "name": "Cold Coffee"}], refNo="#P81"),
-        o(1033, "dine-in", "new", 0.2, "Main Kitchen", [{"qty": 1, "name": "Masala Dosa"}, {"qty": 1, "name": "Cold Coffee"}], table="Table 6"),
-        # ---- last week (for week-over-week trends) ----
-        o(990, "dine-in", "completed", 8 * 1440, "Tandoor", [{"qty": 2, "name": "Paneer Tikka"}, {"qty": 2, "name": "Butter Naan"}], table="Table 3", prep_min=6),
-        o(991, "takeaway", "completed", 8 * 1440 + 90, "Main Kitchen", [{"qty": 1, "name": "Dal Makhani"}, {"qty": 2, "name": "Tandoori Roti"}], prep_min=9),
-        o(992, "delivery", "completed", 9 * 1440, "Chinese", [{"qty": 2, "name": "Veg Hakka Noodles"}, {"qty": 1, "name": "Manchurian"}], refNo="#D090", prep_min=7),
-        o(993, "dine-in", "completed", 9 * 1440 + 200, "Pizza", [{"qty": 2, "name": "Farmhouse Pizza"}], table="Table 8", prep_min=14),
-        o(994, "takeaway", "completed", 10 * 1440, "Main Kitchen", [{"qty": 2, "name": "Masala Dosa"}, {"qty": 1, "name": "Cold Coffee"}], prep_min=5),
-        o(995, "pickup", "completed", 10 * 1440 + 300, "Main Kitchen", [{"qty": 2, "name": "Veg Burger"}, {"qty": 3, "name": "French Fries"}], refNo="#P40", prep_min=8),
-        o(996, "dine-in", "completed", 11 * 1440, "Tandoor", [{"qty": 3, "name": "Butter Naan"}, {"qty": 1, "name": "Dal Makhani"}], table="Table 1", prep_min=10),
-    ]
-
-
-async def seed(force: bool = False):
-    if force:
-        await db.orders.delete_many({})
-        await db.menu.delete_many({})
-        await db.counters.delete_many({})
-        await db.print_jobs.delete_many({})
-        await db.order_events.delete_many({})
-    if await db.orders.count_documents({}) == 0:
-        await db.orders.insert_many(seed_orders_payload())
-        await db.counters.update_one({"_id": "kot"}, {"$set": {"seq": 10}}, upsert=True)
-    if await db.menu.count_documents({}) == 0:
-        await db.menu.insert_many(
-            [MenuItem(name=n, station=s, available=a).to_mongo() for n, s, a in SEED_MENU]
-        )
-
-
-@app.on_event("startup")
-async def on_start():
-    await seed()
+# Demo/seed data generation (seed_orders_payload, SEED_MENU, seed()) and the
+# unconditional startup call to it were removed 2026-09-18 — the board now
+# starts empty and only ever shows real orders relayed in from billing
+# (see App\Listeners\RelayOrderToKds on the billing side), instead of
+# auto-populating 21 fake KOTs on every fresh/empty-collection startup.
 
 
 # ---------------- endpoints ----------------
@@ -635,22 +556,6 @@ async def pos_create_order(body: OrderCreate):
     return out
 
 
-@api_router.post("/pos/orders/random")
-async def pos_create_random(station: Optional[str] = None):
-    menu = [MenuItem.from_mongo(d) for d in await db.menu.find({"available": True}).to_list(100)]
-    typ = random.choice(["dine-in", "takeaway", "delivery", "pickup"])
-    picked = random.sample(menu, k=min(len(menu), random.randint(1, 3)))
-    body = OrderCreate(
-        type=typ,
-        table=f"Table {random.randint(1, 20)}" if typ == "dine-in" else None,
-        refNo=f"#D{random.randint(180, 269)}" if typ == "delivery" else (f"#P{random.randint(60, 99)}" if typ == "pickup" else None),
-        station=station or random.choice(STATIONS),
-        note=random.choice(["Serve together", "Pack separately", None, None]),
-        items=[OrderItem(qty=random.randint(1, 3), name=m.name, note=random.choice(["Extra Spicy", "No Onion", "Less Oil", None, None])) for m in picked],
-    )
-    return await pos_create_order(body)
-
-
 def ticket_lines(order: dict) -> List[str]:
     lines = [
         "BhojPe",
@@ -743,19 +648,63 @@ async def _get_order(order_id: str):
     return doc
 
 
-@api_router.patch("/orders/{order_id}/status")
-async def set_status(order_id: str, body: StatusUpdate, x_actor: Optional[str] = Header(None)):
-    if body.status not in STATUS_FLOW:
-        raise HTTPException(400, "Invalid status")
-    doc = await _get_order(order_id)
-    update = {"status": body.status}
-    if body.status in STAMP:
-        update[STAMP[body.status]] = now_iso()
-    # moving backwards (recall) clears later stamps
-    idx = STATUS_FLOW.index(body.status)
+def _status_update_fields(new_status: str) -> dict:
+    """Pure status-transition fields (stamp set + later stamps cleared) -
+    DB-update shape only, no side effects, no billing call. Shared by
+    set_status() (a local KDS action) and update_status_by_billing_item()
+    (a billing-origin push) so the stamp logic lives in exactly one place.
+    Deliberately does NOT relay to billing itself - that only happens inside
+    set_status(), or a billing-origin update routed through here would bounce
+    straight back out to billing and loop.
+    """
+    update = {"status": new_status}
+    if new_status in STAMP:
+        update[STAMP[new_status]] = now_iso()
+    idx = STATUS_FLOW.index(new_status)
     for st in STATUS_FLOW[idx + 1:]:
         if st in STAMP:
             update[STAMP[st]] = None
+    return update
+
+
+async def _relay_status_to_billing(doc: dict, ctx: Optional[dict], new_status: str) -> None:
+    """Reverse half of KDS<->POS kitchen-status sync - pushes a bhojpekds-
+    originated status change (Start Cooking / Mark Ready) back into billing
+    so bhojpe-poss's own in-app KDS screen shows the same state. Mirrors the
+    existing chefToken-based toggle-availability push elsewhere in this file
+    (same auth, same log-and-continue safety net).
+    """
+    billing_status = BILLING_KITCHEN_STATUS.get(new_status)
+    if not billing_status or not ctx or not ctx.get("chefToken"):
+        return
+    item_kitchen_ids = doc.get("itemKitchenIds") or {}
+    if not item_kitchen_ids:
+        return
+    async with httpx.AsyncClient(timeout=10) as http:
+        for item_id, kitchen_id in item_kitchen_ids.items():
+            if not kitchen_id:
+                continue
+            try:
+                await http.patch(
+                    f"{BILLING_API_BASE_URL}/api/v1/kitchen-items/{item_id}/status",
+                    json={"status": billing_status, "kitchen_id": kitchen_id},
+                    headers={"Authorization": f"Bearer {ctx['chefToken']}"},
+                )
+            except httpx.HTTPError as e:
+                logger.warning(f"[relay-to-billing] status push failed for item {item_id}: {e}")
+
+
+@api_router.patch("/orders/{order_id}/status")
+async def set_status(
+    order_id: str,
+    body: StatusUpdate,
+    x_actor: Optional[str] = Header(None),
+    ctx: Optional[dict] = Depends(get_branch_context),
+):
+    if body.status not in STATUS_FLOW:
+        raise HTTPException(400, "Invalid status")
+    doc = await _get_order(order_id)
+    update = _status_update_fields(body.status)
     await db.orders.update_one({"_id": doc["_id"]}, {"$set": update})
     out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
     await hub.broadcast("order.updated", out, branch_id=out.get("branchId"))
@@ -766,6 +715,37 @@ async def set_status(order_id: str, body: StatusUpdate, x_actor: Optional[str] =
         x_actor,
         f"{doc.get('status')} -> {body.status}" if backwards else ACTION_LABELS.get(body.status),
     )
+    if not backwards:
+        await _relay_status_to_billing(doc, ctx, body.status)
+    return out
+
+
+@api_router.patch("/pos/orders/by-billing-item/status")
+async def update_status_by_billing_item(body: BillingItemStatusUpdate):
+    """Forward half of KDS<->POS kitchen-status sync - receives a status push
+    from billing's RelayKitchenStatusToKds listener whenever a kitchen item's
+    status changes on billing's side (bhojpe-poss's in-app KDS, Captain app,
+    etc). No pairing/auth required, same as the /pos/orders intake route this
+    mirrors - billing is a trusted internal caller, not an end-user client.
+    """
+    if body.status not in STATUS_FLOW:
+        raise HTTPException(400, "Invalid status")
+    doc = await db.orders.find_one({"billingOrderItemIds": body.billingOrderItemId})
+    if not doc:
+        logger.warning(f"[by-billing-item] no KDS ticket found for billing item {body.billingOrderItemId}")
+        raise HTTPException(404, "No matching KDS ticket for this billing item")
+
+    # Ordering guard - a bulk "mark all ready" fires one relay call per item
+    # from billing, independently over HTTP with no delivery-order guarantee.
+    # Discard anything older than what's already applied for this ticket.
+    if body.sentAt < doc.get("lastBillingStatusAt", ""):
+        return order_out(doc)
+
+    update = _status_update_fields(body.status)
+    update["lastBillingStatusAt"] = body.sentAt
+    await db.orders.update_one({"_id": doc["_id"]}, {"$set": update})
+    out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
+    await hub.broadcast("order.updated", out, branch_id=out.get("branchId"))
     return out
 
 
@@ -1239,26 +1219,6 @@ async def prep_time(ctx: Optional[dict] = Depends(get_branch_context)):
         "overallAvgSeconds": round(sum(overall) / len(overall)) if overall else None,
         "generatedAt": now_iso(),
     }
-
-
-@api_router.post("/demo/reset")
-async def demo_reset():
-    await seed(force=True)
-    await hub.broadcast("data.reset", {"at": now_iso()})
-    return {"ok": True}
-
-
-@api_router.post("/demo/delay/{order_id}")
-async def demo_delay(order_id: str):
-    doc = await _get_order(order_id)
-    created = datetime.now(timezone.utc).timestamp() - 16 * 60
-    await db.orders.update_one(
-        {"_id": doc["_id"]},
-        {"$set": {"createdAt": datetime.fromtimestamp(created, timezone.utc).isoformat(), "priority": "urgent"}},
-    )
-    out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
-    await hub.broadcast("order.updated", out, branch_id=out.get("branchId"))
-    return out
 
 
 @app.websocket("/api/ws")

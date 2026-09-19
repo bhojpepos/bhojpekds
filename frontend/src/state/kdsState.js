@@ -390,39 +390,6 @@ export function KdsProvider({ children }) {
         return call(() => api.setItemAvailability(id, available));
       },
 
-      newKot: async (st) => {
-        const res = await call(() => api.posCreateRandomOrder(st || station));
-        if (res) {
-          setOrders((prev) => (prev.some((o) => o.id === res.id) ? prev : [res, ...prev]));
-          if (!alert) fireAlert(res);
-        }
-        return res;
-      },
-
-      markRandomReady: async () => {
-        const cand = orders.filter((o) => o.status === "cooking");
-        if (!cand.length) return null;
-        const o = cand[Math.floor(Math.random() * cand.length)];
-        patchOrder(o.id, { status: "ready" });
-        const res = await call(() => api.setOrderStatus(o.id, "ready"));
-        if (res) patchOrder(o.id, res);
-        return o;
-      },
-
-      simulateDelayed: async () => {
-        const cand = orders.filter((o) => o.status === "new" || o.status === "cooking");
-        if (!cand.length) return null;
-        const o = cand[Math.floor(Math.random() * cand.length)];
-        const res = await call(() => api.delayOrder(o.id));
-        if (res) patchOrder(o.id, res);
-        return o;
-      },
-
-      resetDemo: async () => {
-        await call(() => api.resetDemo());
-        await refresh();
-      },
-
       dismissAlert: () => setAlert(null),
       testAlert: fireAlert,
     }),

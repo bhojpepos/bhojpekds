@@ -57,6 +57,9 @@ ORDER_SOURCES = (
     "online_zomato",
     "online_website",
     "kiosk",
+    # Hotel guest QR ordering (RoomQrBrowserController::storeOrder on the
+    # billing side) — added 2026-09-18 alongside room-service TYPE_MAP.
+    "room_service",
 )
 
 
@@ -84,6 +87,10 @@ class Order(BaseDocument):
     billingOrderId: Optional[str] = None
     billingOrderItemIds: List[str] = []
     kitchenId: Optional[str] = None         # billing Kitchen id, needed for status push-back
+    itemKitchenIds: dict[str, Optional[str]] = {}  # order_item id -> its own kitchen id (a KOT round can span kitchens)
+    lastBillingStatusAt: Optional[str] = None      # last-applied timestamp from a billing-origin status push (ordering guard)
+    pickupAt: Optional[str] = None          # only ever set for a customer-app takeaway order today
+    customerName: Optional[str] = None
 
 
 class MenuItem(BaseDocument):
@@ -116,10 +123,19 @@ class OrderCreate(BaseModel):
     billingOrderId: Optional[str] = None
     billingOrderItemIds: List[str] = []
     kitchenId: Optional[str] = None
+    itemKitchenIds: dict[str, Optional[str]] = {}
+    pickupAt: Optional[str] = None
+    customerName: Optional[str] = None
 
 
 class StatusUpdate(BaseModel):
     status: str
+
+
+class BillingItemStatusUpdate(BaseModel):
+    billingOrderItemId: str
+    status: str
+    sentAt: str
 
 
 class PriorityUpdate(BaseModel):
