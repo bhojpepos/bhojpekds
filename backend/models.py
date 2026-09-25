@@ -56,6 +56,8 @@ ORDER_SOURCES = (
     "online_swiggy",
     "online_zomato",
     "online_website",
+    "online_bhojpe",   # Bhojpe customer app
+    "table_qr",        # guest scanned the table QR
     "kiosk",
     # Hotel guest QR ordering (RoomQrBrowserController::storeOrder on the
     # billing side) — added 2026-09-18 alongside room-service TYPE_MAP.

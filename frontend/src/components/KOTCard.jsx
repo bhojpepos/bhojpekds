@@ -22,7 +22,11 @@ const TYPE_META = {
 // tells the kitchen something a plain counter order wouldn't already imply;
 // no badge for the ordinary in-house POS case.
 const SOURCE_LABEL = {
-  online_website: "ONLINE",
+  online_bhojpe: "BHOJPE",
+  online_website: "WEBSITE",
+  online_zomato: "ZOMATO",
+  online_swiggy: "SWIGGY",
+  table_qr: "TABLE QR",
   captain_app: "CAPTAIN APP",
   room_service: "ROOM QR",
 };
