@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { StatusLine } from "@/components/ConnectionStatus";
 import { User, Bell, Palette, LogOut, ChefHat, ChevronDown } from "lucide-react";
+import { light as BP } from '../theme/tokens'
 
 const initials = (name) =>
   (name || "")
@@ -17,7 +18,7 @@ const ChefAvatar = ({ chef, className }) =>
   chef.avatar ? (
     <img src={chef.avatar} alt={chef.name} className={className} />
   ) : (
-    <div className={`${className} bg-[#FF3131] text-white flex items-center justify-center font-bold text-sm`}>
+    <div className={`${className} bg-bp-brand-primary text-white flex items-center justify-center font-bold text-sm`}>
       {initials(chef.name)}
     </div>
   );
@@ -91,7 +92,7 @@ export const ChefProfile = () => {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           data-testid="profile-menu-logout"
-          className={`${ITEM_CLASS} text-[#FF3131]`}
+          className={`${ITEM_CLASS} text-bp-status-danger`}
           onClick={() => {
             // Ends THIS chef's shift only - the screen stays paired to the
             // branch (matches bhojpe-poss: logging out never re-asks for the

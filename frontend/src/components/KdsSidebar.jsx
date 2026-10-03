@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { BrandMark } from "@/components/BrandMark";
 import { SETTINGS_SECTIONS } from "@/pages/SettingsSectionPage";
 import { LayoutGrid, X } from "lucide-react";
+import { light as BP } from '../theme/tokens'
 
 // POS-style slide-out sidebar — opened from the hamburger icon in Header.jsx
 // (before the logo, same placement as bhojpe-poss). Lists every Settings
@@ -52,7 +53,7 @@ export const KdsSidebar = ({ open, onClose }) => {
             data-testid="kds-sidebar-board"
             onClick={() => go("/")}
             className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-left ${
-              location.pathname === "/" ? "bg-[#FEF2F2] text-[#FF3131]" : "text-[#2C2C2C] hover:bg-[#F7F7F7]"
+              location.pathname === "/" ? "bg-bp-interactive-soft text-bp-interactive-primary" : "text-[#2C2C2C] hover:bg-[#F7F7F7]"
             }`}
           >
             <LayoutGrid className="w-4 h-4" /> Kitchen Board
@@ -68,7 +69,7 @@ export const KdsSidebar = ({ open, onClose }) => {
                 data-testid={`kds-sidebar-${id}`}
                 onClick={() => go(`/settings/${id}`)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-left ${
-                  active ? "bg-[#FEF2F2] text-[#FF3131]" : "text-[#2C2C2C] hover:bg-[#F7F7F7]"
+                  active ? "bg-bp-interactive-soft text-bp-interactive-primary" : "text-[#2C2C2C] hover:bg-[#F7F7F7]"
                 }`}
               >
                 <Icon className="w-4 h-4" /> {label}

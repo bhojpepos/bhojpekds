@@ -39,7 +39,7 @@ export const TokenScreenPreview = ({ compact = false }) => {
     >
       <div className="flex items-baseline justify-between mb-6">
         <span className="font-head font-extrabold text-white text-xl sm:text-3xl">
-          Bhoj<span className="text-[#FF3131]">Pe</span>
+          Bhoj<span className="text-bp-brand-primary">Pe</span>
         </span>
         <span className="text-white/40 text-xs tracking-widest uppercase">{state.connection.branch}</span>
       </div>

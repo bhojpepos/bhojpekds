@@ -8,7 +8,7 @@ export const DelayAlertBanner = () => {
   return (
     <div
       data-testid="delay-alert-banner"
-      className="flex items-center gap-3 px-4 py-2.5 bg-[#FF3131] text-white shrink-0"
+      className="flex items-center gap-3 px-4 py-2.5 bg-bp-status-danger text-white shrink-0"
     >
       <AlarmClock className="w-5 h-5 blink-soft" />
       <span className="font-head font-extrabold tracking-wider text-sm sm:text-base">

@@ -21,7 +21,7 @@ const EventRow = ({ e }) => (
     <span className="text-xs font-mono opacity-50 shrink-0 mt-0.5">{when(e.at)}</span>
     <div className="min-w-0">
       <div className="text-sm font-semibold">
-        <span className="text-[#FF3131]">KOT #{e.kot}</span> · {ACTION_TEXT[e.action] || e.action}
+        <span className="text-bp-interactive-primary">KOT #{e.kot}</span> · {ACTION_TEXT[e.action] || e.action}
       </div>
       <div className="text-xs opacity-60">
         {e.actor} · {e.station}
@@ -173,7 +173,7 @@ export const WeeklyTrends = () => {
               <span className="text-xs opacity-60 w-24 shrink-0">{d.day}</span>
               <div className="flex-1 h-2 rounded bg-[#F3F4F6] overflow-hidden">
                 <div
-                  className="h-full bg-[#FF3131]"
+                  className="h-full bg-bp-interactive-primary"
                   style={{ width: `${Math.min(100, (d.count / Math.max(...data.ordersPerDay.map((x) => x.count))) * 100)}%` }}
                 />
               </div>

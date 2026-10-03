@@ -1,9 +1,10 @@
 import React from "react";
 import { ageOf, ageLevel, useKds } from "@/state/kdsState";
 import { ACTION_LABEL } from "@/services/mockOrderService";
-import { AlertTriangle, Clock, CheckCircle2, Flame, ChevronUp, Undo2, Printer, ArrowRightLeft, History, Utensils, ShoppingBag, Bike, BedDouble } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle2, Circle, Flame, ChevronUp, Undo2, Printer, ArrowRightLeft, History, Utensils, ShoppingBag, Bike, BedDouble } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { OrderHistoryDialog } from "@/components/Analytics";
+import { light as BP } from '../theme/tokens'
 
 const TYPE_META = {
   "dine-in": { label: "Dine In", Icon: Utensils },
@@ -36,7 +37,7 @@ const TIMER_ICON = { fresh: Clock, warning: AlertTriangle, delayed: Flame };
 const PRIORITY = {
   normal: null,
   high: { label: "HIGH PRIORITY", color: "#B45309" },
-  urgent: { label: "URGENT", color: "#FF3131" },
+  urgent: { label: "URGENT", color: BP.status.danger },
 };
 
 export const KOTCard = ({ order }) => {
@@ -61,10 +62,12 @@ export const KOTCard = ({ order }) => {
       ? new Date(order.pickupAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
       : order.type === "delivery" && order.customerName
         ? order.customerName
-        : order.refNo
-          ? `#${order.refNo}`
-          : null;
-  const sourceLabel = SOURCE_LABEL[order.source];
+        : null;
+  // Captain orders show WHO took them (the captain's name) instead of a
+  // generic "CAPTAIN APP" badge; other channels keep their label.
+  const sourceLabel = order.source === "captain_app" && order.createdByName
+    ? `Capt. ${order.createdByName}`
+    : SOURCE_LABEL[order.source];
 
   const cyclePriority = () => {
     const seq = ["normal", "high", "urgent"];
@@ -93,26 +96,27 @@ export const KOTCard = ({ order }) => {
           signal, same language as the reference board. Type icon + context
           on top, order # / time / elapsed underneath. ── */}
       <div className="px-3 pt-2.5 pb-2 space-y-1.5 text-white" style={{ background: statusColor }}>
-        <div className="flex items-center justify-between gap-2">
+        {/* context | timer (centered) | type — equal side columns keep the
+            timer in the exact middle of the ticket whatever the text widths. */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="flex items-center gap-1.5 min-w-0" data-testid={`kot-type-${order.kot}`}>
             <type.Icon className="w-4 h-4 shrink-0 opacity-90" />
             <span className="k-meta font-bold truncate">
               {context || type.label}
             </span>
           </div>
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-white/50 shrink-0">
+          <div className="flex items-center gap-1" data-testid={`kot-timer-${order.kot}`}>
+            <TimerIcon className={`w-3.5 h-3.5 ${level === "delayed" ? "blink-soft" : "opacity-85"}`} />
+            <span className="k-meta font-bold tabular-nums">{age.text}</span>
+          </div>
+          <span className="justify-self-end text-[11px] font-bold px-2 py-0.5 rounded-full border border-white/50 whitespace-nowrap">
             {type.label}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="k-note text-white/85" data-testid={`kot-number-${order.kot}`}>
-            Order #{order.kot}
-            {sourceLabel ? ` · ${sourceLabel}` : ""}
-          </span>
-          <div className="flex items-center gap-1 shrink-0" data-testid={`kot-timer-${order.kot}`}>
-            <TimerIcon className={`w-3.5 h-3.5 ${level === "delayed" ? "blink-soft" : "opacity-85"}`} />
-            <span className="k-note font-bold tabular-nums">{age.text}</span>
-          </div>
+        <div className="k-note text-white/85 truncate" data-testid={`kot-number-${order.kot}`}>
+          KOT #{order.kot}
+          {order.refNo ? ` · Order #${order.refNo}` : ""}
+          {sourceLabel ? ` · ${sourceLabel}` : ""}
         </div>
       </div>
 
@@ -127,22 +131,29 @@ export const KOTCard = ({ order }) => {
         </div>
       )}
 
-      {/* ── Item list — tap a line to strike it done, modifiers in italic gray ── */}
-      <div className="px-3 py-2 space-y-2">
+      {/* ── Item list — tap a line to tick it "ban gaya" (green ✓). Not a
+          cancel: no strike-through, only a check + soft green row. ── */}
+      <div className="px-3 py-2 space-y-1.5">
         {order.items.map((i, idx) => (
           <button
             key={idx}
             data-testid={`kot-${order.kot}-item-${idx}`}
             onClick={() => actions.toggleItemDone(order.id, idx, !i.done)}
-            className="w-full text-left block rounded hover:bg-[#FAFAFA] py-0.5"
+            title={i.done ? "Ban gaya — dobara tap karke hatao" : "Ban jaye to tap karo"}
+            className={`w-full text-left flex items-start gap-2 rounded-md px-1.5 py-1 transition-colors ${i.done ? "bg-[#ECFDF5] hover:bg-[#D1FAE5]" : "hover:bg-[#FAFAFA]"}`}
           >
-            <span className={`k-item-qty ${i.done ? "opacity-35" : "text-[#111]"}`}>{i.qty}x </span>
-            <span className={`k-item-name ${i.done ? "line-through opacity-35" : "text-[#111]"}`}>{i.name}</span>
-            {i.note && (
-              <div className={`k-note italic mt-0.5 ${i.done ? "opacity-35 line-through" : "text-[#6B7280]"}`}>
-                {i.note}
-              </div>
-            )}
+            {i.done
+              ? <CheckCircle2 data-testid={`kot-${order.kot}-item-${idx}-done`} className="w-5 h-5 mt-0.5 shrink-0" style={{ color: BP.status.success }} />
+              : <Circle className="w-5 h-5 mt-0.5 shrink-0 text-[#D1D5DB]" />}
+            <span className="min-w-0">
+              <span className={`k-item-qty ${i.done ? "text-[#047857]" : "text-[#111]"}`}>{i.qty}x </span>
+              <span className={`k-item-name ${i.done ? "text-[#047857]" : "text-[#111]"}`}>{i.name}</span>
+              {i.note && (
+                <span className={`block k-note italic mt-0.5 ${i.done ? "text-[#059669]" : "text-[#6B7280]"}`}>
+                  {i.note}
+                </span>
+              )}
+            </span>
           </button>
         ))}
       </div>

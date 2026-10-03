@@ -4,6 +4,7 @@ import * as api from "@/services/apiService";
 import { Printer, RefreshCw, Check, RotateCcw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { light as BP } from '../theme/tokens'
 
 export const PrintQueue = () => {
   const { state, actions, lastPrintJob } = useKds();
@@ -59,7 +60,7 @@ export const PrintQueue = () => {
             <span
               className="text-[11px] font-extrabold tracking-wider rounded px-1.5 py-0.5"
               style={{
-                background: j.status === "printed" ? "#ECFDF5" : j.status === "failed" ? "#FEF2F2" : "#FFFBEB",
+                background: j.status === "printed" ? "#ECFDF5" : j.status === "failed" ? BP.status.dangerSoft : "#FFFBEB",
                 color: j.status === "printed" ? "#047857" : j.status === "failed" ? "#DC2626" : "#B45309",
               }}
             >

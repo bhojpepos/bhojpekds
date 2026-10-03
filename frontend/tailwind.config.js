@@ -1,5 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+    // BhojPe design tokens → bg-bp-brand-primary, text-bp-kds-delayed, … (generated)
+    presets: [require("./bhojpe-tailwind.cjs")],
     darkMode: ["class"],
     content: [
     "./src/**/*.{js,jsx,ts,tsx}",
@@ -23,8 +25,9 @@ module.exports = {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))'
         },
+        // primary / ring / destructive follow the BhojPe tokens, not the shadcn HSL defaults
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
+          DEFAULT: 'rgb(var(--bp-brand-primary-rgb) / <alpha-value>)',
           foreground: 'hsl(var(--primary-foreground))'
         },
         secondary: {
@@ -40,12 +43,12 @@ module.exports = {
           foreground: 'hsl(var(--accent-foreground))'
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
+          DEFAULT: 'rgb(var(--bp-status-danger-rgb) / <alpha-value>)',
           foreground: 'hsl(var(--destructive-foreground))'
         },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
+        ring: 'rgb(var(--bp-interactive-primary-rgb) / <alpha-value>)',
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',

@@ -1,5 +1,6 @@
 import React from "react";
 import { Search, X } from "lucide-react";
+import { light as BP } from '../theme/tokens'
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -28,7 +29,7 @@ export const FilterBar = ({ filter, setFilter, query, setQuery, stations = [], s
           onClick={() => setFilter(f.id)}
           className={`shrink-0 min-h-[44px] px-3.5 rounded-md text-sm font-bold border transition-colors ${
             filter === f.id
-              ? "bg-[#FF3131] text-white border-[#FF3131]"
+              ? "bg-bp-interactive-primary text-white border-bp-interactive-primary"
               : "bg-white text-[#2C2C2C] border-[#E5E7EB] hover:bg-[#F7F7F7]"
           }`}
         >
@@ -42,7 +43,7 @@ export const FilterBar = ({ filter, setFilter, query, setQuery, stations = [], s
         data-testid="station-filter-select"
         value={stationFilter}
         onChange={(e) => onStationFilterChange?.(e.target.value)}
-        className="shrink-0 min-h-[44px] px-3 rounded-md border border-[#E5E7EB] bg-white text-sm font-bold text-[#2C2C2C] outline-none focus:border-[#FF3131]"
+        className="shrink-0 min-h-[44px] px-3 rounded-md border border-[#E5E7EB] bg-white text-sm font-bold text-[#2C2C2C] outline-none focus:border-bp-brand-primary"
       >
         <option value="all">All Stations</option>
         {stations.map((s) => (
@@ -60,7 +61,7 @@ export const FilterBar = ({ filter, setFilter, query, setQuery, stations = [], s
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search KOT / Table / Token"
-        className="w-full min-h-[44px] pl-9 pr-9 rounded-md border border-[#E5E7EB] bg-white outline-none focus:border-[#FF3131] text-sm"
+        className="w-full min-h-[44px] pl-9 pr-9 rounded-md border border-[#E5E7EB] bg-white outline-none focus:border-bp-brand-primary text-sm"
       />
       {query && (
         <button

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useKds } from "@/state/kdsState";
 import { toast } from "sonner";
 import { Search, Ban } from "lucide-react";
+import { light as BP } from '../theme/tokens'
 
 export const ItemAvailability = () => {
   const { state, actions } = useKds();
@@ -24,7 +25,7 @@ export const ItemAvailability = () => {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search items"
-          className="w-full min-h-[48px] pl-9 pr-3 rounded-md border border-[#E5E7EB] bg-white outline-none focus:border-[#FF3131]"
+          className="w-full min-h-[48px] pl-9 pr-3 rounded-md border border-[#E5E7EB] bg-white outline-none focus:border-bp-brand-primary"
         />
       </div>
 
@@ -38,11 +39,11 @@ export const ItemAvailability = () => {
             data-testid={`item-row-${m.id}`}
             onClick={() => toggle(m)}
             className="relative text-left bg-white border rounded-md p-3 min-h-[84px] flex flex-col justify-between hover:brightness-97 active:scale-[0.98]"
-            style={{ borderColor: m.available ? "#E5E7EB" : "#FF3131", opacity: m.available ? 1 : 0.7 }}
+            style={{ borderColor: m.available ? "#E5E7EB" : BP.interactive.primary, opacity: m.available ? 1 : 0.7 }}
           >
             {!m.available && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/40 rounded-md pointer-events-none">
-                <Ban className="w-8 h-8 text-[#FF3131]/70" />
+                <Ban className="w-8 h-8 text-bp-status-danger/70" />
               </div>
             )}
             <div className={`text-sm font-bold truncate ${!m.available ? "line-through" : ""}`}>{m.name}</div>
@@ -52,7 +53,7 @@ export const ItemAvailability = () => {
                 data-testid={`item-status-${m.id}`}
                 className="text-[10px] font-extrabold tracking-wider rounded px-1.5 py-0.5 shrink-0"
                 style={{
-                  background: m.available ? "#ECFDF5" : "#FEF2F2",
+                  background: m.available ? "#ECFDF5" : BP.brand.soft,
                   color: m.available ? "#047857" : "#DC2626",
                 }}
               >

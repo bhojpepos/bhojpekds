@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Printer, Mail, Send, BellRing } from "lucide-react";
+import { light as BP } from '../theme/tokens'
 
 const Input = ({ label, value, onChange, placeholder, testId, type = "text" }) => (
   <div className="bg-white border border-[#E5E7EB] rounded-md p-3">
@@ -15,7 +16,7 @@ const Input = ({ label, value, onChange, placeholder, testId, type = "text" }) =
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full min-h-[48px] px-3 rounded-md border border-[#E5E7EB] outline-none focus:border-[#FF3131]"
+      className="w-full min-h-[48px] px-3 rounded-md border border-[#E5E7EB] outline-none focus:border-bp-brand-primary"
     />
   </div>
 );
@@ -128,7 +129,7 @@ export const PrinterConfig = () => {
               const p = printers.find((x) => x.id === id);
               if (p) applyPrinter(p);
             }}
-            className="w-full min-h-[48px] px-3 rounded-md border border-[#E5E7EB] outline-none focus:border-[#FF3131] bg-white"
+            className="w-full min-h-[48px] px-3 rounded-md border border-[#E5E7EB] outline-none focus:border-bp-brand-primary bg-white"
           >
             {printers.map((p) => (
               <option key={p.id} value={p.id}>
@@ -155,7 +156,7 @@ export const PrinterConfig = () => {
               toast.success("Printer settings saved");
               checkStatus();
             }}
-            className="w-full min-h-[48px] rounded-md bg-[#FF3131] text-white text-sm font-bold"
+            className="w-full min-h-[48px] rounded-md bg-bp-brand-primary text-white text-sm font-bold"
           >
             SAVE PRINTER
           </button>
@@ -176,7 +177,7 @@ export const PrinterConfig = () => {
           data-testid="printer-status"
           className="rounded-md p-3 text-sm font-semibold"
           style={{
-            background: status.reachable ? "#ECFDF5" : "#FEF2F2",
+            background: status.reachable ? "#ECFDF5" : BP.brand.soft,
             color: status.reachable ? "#047857" : "#DC2626",
           }}
         >
@@ -249,7 +250,7 @@ export const RecapConfig = () => {
           await actions.saveConfig({ recapEmail: v });
           toast.success("Recap recipient saved");
         }}
-        className="w-full min-h-[48px] rounded-md bg-[#FF3131] text-white text-sm font-bold"
+        className="w-full min-h-[48px] rounded-md bg-bp-brand-primary text-white text-sm font-bold"
       >
         SAVE RECIPIENT
       </button>

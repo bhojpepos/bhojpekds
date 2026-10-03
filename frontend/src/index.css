@@ -4,10 +4,11 @@
 @tailwind utilities;
 
 :root {
-    --bhoj-primary: #ff3131;
-    --bhoj-dark: #2c2c2c;
-    --bhoj-bg: #f7f7f7;
-    --bhoj-border: #e5e7eb;
+    /* aliases of the generated BhojPe tokens (src/theme/bhojpe-tokens.css) */
+    --bhoj-primary: var(--bp-brand-primary);
+    --bhoj-dark: var(--bp-text-primary);
+    --bhoj-bg: var(--bp-bg-canvas);
+    --bhoj-border: var(--bp-border-default);
     --k: 1;
 }
 

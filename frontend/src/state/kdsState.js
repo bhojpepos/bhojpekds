@@ -4,14 +4,17 @@ import { connectRealtime } from "@/services/realtime";
 import { printTicket } from "@/services/printService";
 import { playAlert } from "@/services/soundService";
 import { NEXT_STATUS, STATUS_ORDER } from "@/services/mockOrderService";
+import { light as BP } from "@/theme/tokens";
 
 const KEY = "bhojpe_kds_v1";
 
+// Status colors come from the BhojPe design tokens (design-system/tokens.json):
+// NEW = blue, PREPARING = orange, READY / COMPLETED = green, DELAYED = red.
 export const DEFAULT_COLORS = {
-  new: "#16A34A",
-  cooking: "#F59E0B",
-  ready: "#2563EB",
-  completed: "#6B7280",
+  new: BP.kds.new,
+  cooking: BP.kds.preparing,
+  ready: BP.kds.ready,
+  completed: BP.kds.completed,
 };
 
 const DEFAULT_SETTINGS = {
@@ -146,13 +149,18 @@ export function KdsProvider({ children }) {
     alertTimer.current = setTimeout(() => setAlert(null), (s.alertDuration || 5) * 1000);
   }, []);
 
+  // Latest SLA for the rush fetches below (their callbacks are created once).
+  const slaSecondsRef = useRef(settings.slaMinutes * 60);
+  slaSecondsRef.current = settings.slaMinutes * 60;
+  const fetchRushNow = () => api.fetchRush(slaSecondsRef.current);
+
   const refresh = useCallback(async () => {
     try {
       const [o, m, st, ru] = await Promise.all([
         api.fetchOrders(),
         api.fetchMenu(),
         api.fetchPrepStats(),
-        api.fetchRush(),
+        fetchRushNow(),
       ]);
       setOrders(o);
       setMenu(m);
@@ -184,7 +192,7 @@ export function KdsProvider({ children }) {
 
   const refreshStats = useCallback(async () => {
     try {
-      const [st, ru] = await Promise.all([api.fetchPrepStats(), api.fetchRush()]);
+      const [st, ru] = await Promise.all([api.fetchPrepStats(), fetchRushNow()]);
       setStats(st);
       setRush(ru);
     } catch {
@@ -193,11 +201,13 @@ export function KdsProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    fetchRushNow().then(setRush).catch(() => {}); // SLA changed in Settings → re-judge now
     const t = setInterval(() => {
-      api.fetchRush().then(setRush).catch(() => {});
+      fetchRushNow().then(setRush).catch(() => {});
     }, 15000);
     return () => clearInterval(t);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.slaMinutes]);
 
   useEffect(() => {
     refresh();

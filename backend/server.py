@@ -1033,9 +1033,13 @@ async def cron_shift_recap(
 
 
 @api_router.get("/stats/rush")
-async def rush_status(ctx: Optional[dict] = Depends(get_branch_context)):
-    """Live 'how far behind is the kitchen' indicator."""
-    target = 600  # 10 min service target from order creation to ready
+async def rush_status(target: int = 600, ctx: Optional[dict] = Depends(get_branch_context)):
+    """Live 'how far behind is the kitchen' indicator.
+
+    `target` = seconds from order creation to ready — the KDS screen sends its
+    Settings → SLA, so this bar and the card timers / Delayed filter agree.
+    """
+    target = max(60, min(target, 4 * 3600))
     active = await db.orders.find(_branch_filter(ctx, {"status": {"$in": ["new", "cooking"]}})).to_list(1000)
     nowts = datetime.now(timezone.utc)
     ages = []
@@ -1056,7 +1060,7 @@ async def rush_status(ctx: Optional[dict] = Depends(get_branch_context)):
         except Exception:
             continue
 
-    if len(delayed) >= 4 or behind > 240:
+    if len(delayed) >= 4 or behind > target * 0.4:  # 4 min on the default 10-min target
         level = "rush"
     elif len(delayed) >= 1 or len(active) >= 8:
         level = "busy"

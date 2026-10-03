@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import { Loader2, CheckCircle2, ArrowRight, KeyRound, Link2, Delete, CornerDownLeft, RefreshCw } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { light as BP } from '../theme/tokens'
 
-const RED = "#FF3131";
+const RED = BP.status.danger;
 const BLACK = "#111111";
 
 // Same gradient + pill language as bhojpe-poss's ConnectPage.jsx/LoginPage.jsx
@@ -322,7 +323,7 @@ function PasscodeStage({ branchLabel, onLoggedIn, onSessionLost, onChangeBranch 
             <AlertDialogAction
               data-testid="change-branch-confirm-btn"
               onClick={onChangeBranch}
-              className="bg-[#FF3131] hover:bg-[#e02b2b]"
+              className="bg-bp-brand-primary hover:bg-[#e02b2b]"
             >
               Disconnect &amp; Change
             </AlertDialogAction>

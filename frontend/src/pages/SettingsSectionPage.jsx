@@ -15,6 +15,7 @@ import { PrinterConfig, RecapConfig, DelayAlertConfig } from "@/components/OpsCo
 import { AuditTrail, WeeklyTrends } from "@/components/Analytics";
 import { playTestBeep } from "@/services/soundService";
 import { toast } from "sonner";
+import { light as BP } from '../theme/tokens'
 import {
   ArrowLeft, Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv,
   Bell, Maximize2, RotateCcw, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History,
@@ -60,9 +61,9 @@ const Btn = ({ children, onClick, testId, variant = "default" }) => (
     onClick={onClick}
     className={`w-full min-h-[48px] rounded-md text-sm font-bold px-3 border ${
       variant === "primary"
-        ? "bg-[#FF3131] text-white border-[#FF3131] hover:brightness-95"
+        ? "bg-bp-brand-primary text-white border-bp-brand-primary hover:brightness-95"
         : variant === "danger"
-        ? "bg-white text-[#FF3131] border-[#FECACA] hover:bg-[#FEF2F2]"
+        ? "bg-white text-bp-status-danger border-[#FECACA] hover:bg-bp-status-danger-soft"
         : "bg-white text-[#2C2C2C] border-[#E5E7EB] hover:bg-[#F7F7F7]"
     }`}
   >
@@ -160,7 +161,7 @@ export default function SettingsSectionPage() {
                 data-testid={`settings-station-${st.replace(/\s+/g, "-").toLowerCase()}`}
                 onClick={() => actions.setStation(st)}
                 className={`w-full min-h-[52px] rounded-md border px-4 text-left text-sm font-bold ${
-                  state.station === st ? "border-[#FF3131] bg-[#FEF2F2] text-[#FF3131]" : "border-[#E5E7EB] bg-white"
+                  state.station === st ? "border-bp-interactive-primary bg-bp-interactive-soft text-bp-interactive-primary" : "border-[#E5E7EB] bg-white"
                 }`}
               >
                 {st}
@@ -209,7 +210,7 @@ export default function SettingsSectionPage() {
                 data-testid={`display-mode-${id}`}
                 onClick={() => actions.setSettings({ displayMode: id })}
                 className={`w-full min-h-[56px] rounded-md border px-4 text-left ${
-                  s.displayMode === id ? "border-[#FF3131] bg-[#FEF2F2]" : "border-[#E5E7EB] bg-white"
+                  s.displayMode === id ? "border-bp-interactive-primary bg-bp-interactive-soft" : "border-[#E5E7EB] bg-white"
                 }`}
               >
                 <div className="text-sm font-bold">{label}</div>
@@ -313,7 +314,7 @@ export default function SettingsSectionPage() {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        {section && <section.Icon className="w-5 h-5 text-[#FF3131]" />}
+        {section && <section.Icon className="w-5 h-5 text-bp-brand-primary" />}
         <h1 className="font-head font-extrabold text-lg text-[#1A1A1A]">{section?.label || "Settings"}</h1>
       </header>
       <div className={`flex-1 overflow-y-auto thin-scroll p-4 w-full ${sectionId === "items" ? "" : "max-w-2xl mx-auto"}`}>{body()}</div>

@@ -4,6 +4,7 @@ import { useKds, ageOf, ageLevel } from "@/state/kdsState";
 import { STATUS_ORDER, STATUS_LABEL } from "@/services/mockOrderService";
 import { StatusColumn } from "@/components/StatusColumn";
 import { ArrowLeft } from "lucide-react";
+import { light as BP } from '../theme/tokens'
 
 const slug = (s) => s.replace(/\s+/g, "-").toLowerCase();
 
@@ -50,7 +51,7 @@ export default function StationScreen() {
           <span
             data-testid="station-overdue-count"
             className="rounded-md px-3 py-1.5"
-            style={{ background: overdue ? "#FF3131" : "rgba(255,255,255,0.1)" }}
+            style={{ background: overdue ? BP.status.danger : "rgba(255,255,255,0.1)" }}
           >
             {overdue} overdue
           </span>
@@ -64,7 +65,7 @@ export default function StationScreen() {
             to={`/station/${slug(s)}`}
             data-testid={`station-link-${slug(s)}`}
             className={`shrink-0 min-h-[44px] px-3.5 rounded-md text-sm font-bold border flex items-center ${
-              s === station ? "bg-[#FF3131] text-white border-[#FF3131]" : "bg-white border-[#E5E7EB] text-[#2C2C2C]"
+              s === station ? "bg-bp-interactive-primary text-white border-bp-interactive-primary" : "bg-white border-[#E5E7EB] text-[#2C2C2C]"
             }`}
           >
             {s}

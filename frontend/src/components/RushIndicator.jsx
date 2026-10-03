@@ -1,11 +1,12 @@
 import React from "react";
 import { useKds, formatDuration } from "@/state/kdsState";
 import { Gauge, Flame, Clock } from "lucide-react";
+import { light as BP } from '../theme/tokens'
 
 const LEVEL = {
   "on-track": { label: "ON TRACK", bg: "#ECFDF5", fg: "#047857", Icon: Gauge },
   busy: { label: "BUSY", bg: "#FFF7ED", fg: "#B45309", Icon: Clock },
-  rush: { label: "RUSH HOUR", bg: "#FEF2F2", fg: "#DC2626", Icon: Flame },
+  rush: { label: "RUSH HOUR", bg: BP.brand.soft, fg: "#DC2626", Icon: Flame },
 };
 
 export const RushIndicator = () => {

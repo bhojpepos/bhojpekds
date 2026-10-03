@@ -66,7 +66,7 @@ export const DeviceCard = ({ device, onRename, onDisconnect }) => {
         onClick={handleDisconnect}
         disabled={busy}
         title="Disconnect"
-        className="w-9 h-9 rounded-md border border-[#FECACA] bg-white hover:bg-[#FEF2F2] text-[#DC2626] flex items-center justify-center disabled:opacity-40 shrink-0"
+        className="w-9 h-9 rounded-md border border-[#FECACA] bg-white hover:bg-bp-brand-soft text-[#DC2626] flex items-center justify-center disabled:opacity-40 shrink-0"
       >
         <Unplug className="w-4 h-4" />
       </button>

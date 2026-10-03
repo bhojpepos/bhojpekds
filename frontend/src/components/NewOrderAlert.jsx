@@ -9,7 +9,7 @@ export const NewOrderAlert = () => {
   return (
     <div
       data-testid="new-order-alert"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#FF3131]/95 backdrop-blur-sm px-6"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-bp-kds-new/95 backdrop-blur-sm px-6"
       onClick={actions.dismissAlert}
     >
       <div className="alert-pop text-center text-white">
@@ -26,7 +26,7 @@ export const NewOrderAlert = () => {
         </div>
         <button
           data-testid="dismiss-alert-btn"
-          className="mt-8 inline-flex items-center gap-2 bg-white text-[#FF3131] rounded-md px-6 min-h-[52px] font-bold tracking-wider"
+          className="mt-8 inline-flex items-center gap-2 bg-white text-bp-kds-new rounded-md px-6 min-h-[52px] font-bold tracking-wider"
         >
           <X className="w-5 h-5" /> DISMISS
         </button>

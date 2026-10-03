@@ -121,7 +121,10 @@ export const testPrinter = () => api.post("/print/test").then((r) => r.data);
 export const sendShiftRecap = (hours = 12) =>
   api.post("/reports/shift-recap/send", null, { params: { hours } }).then((r) => r.data);
 
-export const fetchRush = () => api.get("/stats/rush").then((r) => r.data);
+// targetSeconds = this screen's Settings → SLA, so the RUSH bar and the
+// card timers / Delayed filter judge "late" by the same clock.
+export const fetchRush = (targetSeconds) =>
+  api.get("/stats/rush", { params: targetSeconds ? { target: targetSeconds } : undefined }).then((r) => r.data);
 export const fetchShift = (hours = 12) =>
   api.get("/stats/shift", { params: { hours } }).then((r) => r.data);
 

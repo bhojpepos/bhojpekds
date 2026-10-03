@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchBrandLogo, getCachedBrandLogo } from "@/services/apiService";
+import { light as BP } from '../theme/tokens'
 
 export const useBrandLogo = () => {
   const [url, setUrl] = useState(() => getCachedBrandLogo());
@@ -33,9 +34,9 @@ export const BrandMark = ({ size = 40, className = "", tone = "brand" }) => {
     );
   }
   const badgeStyle =
-    tone === "light" ? "bg-white text-[#FF5252]"
+    tone === "light" ? `bg-white text-bp-brand-primary`
     : tone === "dark" ? "bg-[#1A1A1A] text-white"
-    : "bg-[#FF5252] text-white";
+    : `bg-bp-brand-primary text-white`;
   return (
     <div
       className={`rounded-md font-head font-extrabold flex items-center justify-center shrink-0 ${badgeStyle} ${className}`}
