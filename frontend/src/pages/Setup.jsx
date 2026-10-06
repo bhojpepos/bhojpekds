@@ -4,12 +4,13 @@ import { useKds } from "@/state/kdsState";
 import * as api from "@/services/apiService";
 import { unlockAudio } from "@/services/soundService";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, ArrowRight, KeyRound, Link2, Delete, CornerDownLeft, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowRight, KeyRound, Link2, CornerDownLeft, RefreshCw, ChefHat } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { light as BP } from '../theme/tokens'
 
-const RED = BP.status.danger;
+// Login / pairing screen ka accent = main button blue #228BE6 (pehle laal tha).
+const ACCENT = BP.button.primaryBg;
 const BLACK = "#111111";
 
 // Same gradient + pill language as bhojpe-poss's ConnectPage.jsx/LoginPage.jsx
@@ -17,10 +18,34 @@ const BLACK = "#111111";
 // two-stage shape (connect, then passcode), plus a bhojpekds-specific middle
 // stage (pick which kitchen station this screen is for). The passcode stage
 // additionally mirrors LoginPage.jsx's left-illustration/right-form split.
-const PageShell = ({ children, showImage }) => (
+/* Chef header card — login screen ke left me (light border) */
+const ChefHeaderCard = ({ restaurant, station }) => (
+  <div className="w-full max-w-[400px] rounded-[24px] border border-[#E9ECEF] bg-white/80 px-8 py-10 text-center" data-testid="chef-login-header">
+    <span className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-5" style={{ background: "#E7F5FF", color: ACCENT }}>
+      <ChefHat className="w-10 h-10" strokeWidth={1.7} />
+    </span>
+    <div className="text-[12px] font-bold text-black/40 tracking-[0.2em] uppercase mb-1.5">Kitchen Display</div>
+    <div className="text-[28px] font-extrabold leading-tight tracking-tight text-[#111111]">Chef Login</div>
+    <div className="text-[13.5px] text-black/55 mt-1.5">Unlock Kitchen Display with Passcode</div>
+    {(restaurant || station) && (
+      <div className="mt-6 pt-5 border-t border-[#F1F3F5] grid grid-cols-2 gap-3 text-left">
+        <div className="rounded-xl bg-[#F8F9FA] px-3.5 py-2.5 min-w-0">
+          <div className="text-[10.5px] font-bold uppercase tracking-wider text-black/40">Restaurant</div>
+          <div className="text-[13.5px] font-bold text-[#111111] truncate">{restaurant || "—"}</div>
+        </div>
+        <div className="rounded-xl bg-[#F8F9FA] px-3.5 py-2.5 min-w-0">
+          <div className="text-[10.5px] font-bold uppercase tracking-wider text-black/40">Station</div>
+          <div className="text-[13.5px] font-bold text-[#111111] truncate">{station || "—"}</div>
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+const PageShell = ({ children, showImage, aside = null }) => (
   <div
     className="min-h-screen w-full flex flex-col"
-    style={{ background: "linear-gradient(135deg, #ffffff 0%, #ffffff 45%, #FFEEEE 100%)" }}
+    style={{ background: "linear-gradient(135deg, #ffffff 0%, #ffffff 45%, #E7F5FF 100%)" }}
   >
     <header className="h-16 flex items-center px-4 sm:px-8 shrink-0">
       <div className="flex items-center gap-3">
@@ -29,8 +54,9 @@ const PageShell = ({ children, showImage }) => (
     </header>
     {showImage ? (
       <main className="flex-1 flex">
+        {/* Left: chef header card (light border) — pehle chef ki illustration thi */}
         <div className="hidden md:flex flex-1 items-center justify-center px-8">
-          <img src="/chef-character.svg" alt="" className="w-full max-w-[420px] h-auto" />
+          {aside}
         </div>
         <div className="flex-1 flex items-center justify-center px-4 py-6">
           <div className="w-full max-w-[400px]">{children}</div>
@@ -91,7 +117,7 @@ function ConnectStage({ onConnected }) {
           data-testid="continue-after-connect-btn"
           onClick={() => onConnected(connected)}
           className={pillButtonClass + " px-10 w-auto"}
-          style={{ background: RED }}
+          style={{ background: ACCENT }}
         >
           Continue
         </button>
@@ -131,7 +157,7 @@ function ConnectStage({ onConnected }) {
           />
         </div>
         {error && <div className="text-[12.5px] font-semibold text-center mb-3" style={{ color: "#C4001C" }}>{error}</div>}
-        <button data-testid="connect-sync-btn" type="submit" disabled={busy} className={pillButtonClass} style={{ background: RED }}>
+        <button data-testid="connect-sync-btn" type="submit" disabled={busy} className={pillButtonClass} style={{ background: ACCENT }}>
           {busy ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : "Verify & Connect"}
         </button>
         <div className="text-[11.5px] text-black/40 text-center mt-5">
@@ -167,7 +193,7 @@ function StationStage({ initial, stations, onNext }) {
               className="h-11 px-4 rounded-full text-sm font-bold border transition"
               style={
                 station === st
-                  ? { background: RED, borderColor: RED, color: "#fff" }
+                  ? { background: ACCENT, borderColor: ACCENT, color: "#fff" }
                   : { background: "#e5e6e1", borderColor: "transparent", color: BLACK }
               }
             >
@@ -181,7 +207,7 @@ function StationStage({ initial, stations, onNext }) {
         onClick={() => onNext(station)}
         disabled={!station}
         className={pillButtonClass}
-        style={{ background: RED, opacity: station ? 1 : 0.4 }}
+        style={{ background: ACCENT, opacity: station ? 1 : 0.4 }}
       >
         Continue <ArrowRight className="w-4 h-4" />
       </button>
@@ -190,18 +216,16 @@ function StationStage({ initial, stations, onNext }) {
 }
 
 /* ── Stage 3: Passcode login ──────────────────────────────────────────── */
-function PasscodeStage({ branchLabel, onLoggedIn, onSessionLost, onChangeBranch }) {
+function PasscodeStage({ branchLabel, placeLabel, onLoggedIn, onSessionLost, onChangeBranch }) {
   const [code, setCode] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [confirmChangeBranch, setConfirmChangeBranch] = useState(false);
 
-  // Billing passcodes are 4-6 digits (see AuthController's validation and
-  // create.blade.php's "e.g. 1234 (4-6 digits)" hint) - not fixed at 4, so
-  // this can't auto-submit on the 4th digit. The explicit Enter key (already
-  // present for exactly this reason) is what confirms entry once done.
+  // Bhojpe POS jaisa hi: fixed 4-digit passcode, 4 khaane; Enter (button /
+  // keyboard) se login — 4th digit par apne aap submit nahi hota.
   const MIN_LEN = 4;
-  const MAX_LEN = 6;
+  const MAX_LEN = 4;
   const add = (v) => {
     if (busy || code.length >= MAX_LEN) return;
     setError(null);
@@ -245,29 +269,37 @@ function PasscodeStage({ branchLabel, onLoggedIn, onSessionLost, onChangeBranch 
   }, [code, busy]);
 
   const circleBtn =
-    "w-16 h-16 rounded-full text-[18px] font-medium text-black/55 bg-white border border-black/[0.18] transition hover:border-black hover:text-black active:scale-[0.94]";
+    "w-14 h-14 rounded-full text-[17px] font-medium text-black/55 bg-white border border-black/[0.18] transition hover:bg-[#f9fafb] hover:border-black hover:text-black active:scale-[0.94] disabled:text-black/20 disabled:bg-[#fafafa] disabled:border-black/[0.08]";
 
   return (
     <div className="flex flex-col items-center">
-      <div className="text-[13px] font-semibold text-black/70 text-center mb-3">Unlock Kitchen Display with Passcode</div>
-      <div className="h-px bg-black/10 w-full mb-6" />
+      {/* Chhoti screen par (left card chhupa) chef header yahin */}
+      <div className="md:hidden flex flex-col items-center text-center mb-5">
+        <span className="w-14 h-14 rounded-full flex items-center justify-center mb-2.5" style={{ background: "#E7F5FF", color: ACCENT }}>
+          <ChefHat className="w-7 h-7" strokeWidth={1.8} />
+        </span>
+        <div className="text-[20px] font-extrabold tracking-tight text-[#111111]">Chef Login</div>
+        {placeLabel ? <div className="mt-2 text-[11.5px] font-semibold text-[#495057] bg-black/5 rounded-full px-3 py-1">{placeLabel}</div> : null}
+      </div>
+      <div className="hidden md:block text-[13px] font-semibold text-black/70 text-center mb-3">Enter your 4-digit passcode</div>
+      <div className="hidden md:block h-px bg-black/10 w-full mb-6" />
 
-      {/* Dots track how many digits are entered (4-6, variable length) rather
-          than a fixed 4-slot bar - there's no way to know the right length
-          upfront, so entry is confirmed explicitly via Enter, not a count. */}
-      <div className="w-full mb-7 flex justify-center gap-2.5 bg-black/5 rounded-full py-4 px-4 min-h-[52px] items-center" data-testid="passcode-dots">
-        {code.length === 0 ? (
-          <span className="text-[12px] text-black/30">Enter passcode</span>
-        ) : (
-          Array.from({ length: code.length }).map((_, i) => (
-            <span key={i} className="w-3.5 h-3.5 rounded-full transition-transform" style={{ background: RED, transform: "scale(1.15)" }} />
-          ))
-        )}
+      {/* 4-digit display — Bhojpe POS jaisa grey pill, 4 barabar khaane */}
+      <div className="w-full mb-6 grid grid-cols-4 place-items-center bg-black/5 rounded-full py-4 px-4" data-testid="passcode-dots">
+        {[0, 1, 2, 3].map((i) => (
+          <span
+            key={i}
+            className="w-3.5 h-3.5 rounded-full transition-all"
+            style={code[i] !== undefined
+              ? { background: ACCENT, border: `1.2px solid ${ACCENT}`, transform: "scale(1.15)" }
+              : { background: "transparent", border: "1.2px solid rgba(0,0,0,0.3)" }}
+          />
+        ))}
       </div>
 
       {error && <div className="text-[12.5px] font-semibold mb-4" style={{ color: "#C4001C" }}>{error}</div>}
 
-      <div className="grid grid-cols-3 justify-items-center gap-y-6 gap-x-8">
+      <div className="grid grid-cols-3 justify-items-center gap-y-[18px] gap-x-2 w-full">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((v) => (
           <button key={v} data-testid={`passcode-key-${v}`} onClick={() => add(v)} disabled={busy} className={circleBtn}>
             {v}
@@ -277,10 +309,10 @@ function PasscodeStage({ branchLabel, onLoggedIn, onSessionLost, onChangeBranch 
           data-testid="passcode-backspace"
           onClick={removeLast}
           disabled={busy || code.length === 0}
-          className="w-[64px] h-10 text-white flex items-center justify-center disabled:opacity-40"
-          style={{ background: RED, clipPath: "polygon(15% 0, 100% 0, 100% 100%, 15% 100%, 0 50%)" }}
+          className="w-[60px] h-10 self-center text-white flex items-center justify-center disabled:opacity-40 active:scale-[0.94] transition"
+          style={{ background: ACCENT, clipPath: "polygon(15% 0, 100% 0, 100% 100%, 15% 100%, 0 50%)" }}
         >
-          <Delete className="w-4 h-4" />
+          <span className="text-[14px] font-black leading-none ml-2.5">✕</span>
         </button>
         <button data-testid="passcode-key-0" onClick={() => add(0)} disabled={busy} className={circleBtn}>
           0
@@ -289,8 +321,8 @@ function PasscodeStage({ branchLabel, onLoggedIn, onSessionLost, onChangeBranch 
           data-testid="passcode-submit"
           onClick={submit}
           disabled={busy || code.length < MIN_LEN}
-          className="w-16 h-16 flex items-center justify-center disabled:opacity-40"
-          style={{ color: code.length >= MIN_LEN ? RED : "rgba(17,17,17,0.4)" }}
+          className="w-14 h-14 flex items-center justify-center disabled:opacity-40 hover:scale-[1.08] active:scale-[0.94] transition"
+          style={{ color: code.length >= MIN_LEN ? ACCENT : "rgba(17,17,17,0.4)" }}
         >
           {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <CornerDownLeft className="w-[26px] h-[26px]" />}
         </button>
@@ -411,22 +443,23 @@ export default function Setup() {
   };
 
   return (
-    <PageShell showImage={stage === "passcode"}>
+    <PageShell showImage={stage === "passcode"} aside={<ChefHeaderCard restaurant={state.connection.restaurant} station={pickedStation} />}>
       {stage === "connect" && <ConnectStage onConnected={handleConnected} />}
       {stage === "station" && (
         <StationStage initial={pickedStation} stations={connectedInfo?.stations ?? state.connection.stations} onNext={handleStationPicked} />
       )}
       {stage === "passcode" && (
-        <div className="bg-white/70 rounded-[20px] p-6">
+        <div className="w-full max-w-[320px] mx-auto">
           <PasscodeStage
             branchLabel={state.connection.branch || state.connection.restaurant}
+            placeLabel={[state.connection.restaurant, pickedStation].filter(Boolean).join(" · ")}
             onLoggedIn={handleLoggedIn}
             onSessionLost={handleSessionLost}
             onChangeBranch={handleChangeBranch}
           />
         </div>
       )}
-      {(connectedInfo || stage !== "connect") && (
+      {(connectedInfo || stage === "station") && (
         <div className="text-[11px] text-black/40 text-center mt-4">
           {state.connection.restaurant} · {pickedStation}
         </div>

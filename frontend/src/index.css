@@ -32,7 +32,9 @@ body {
         --card-foreground: 0 0% 17%;
         --popover: 0 0% 100%;
         --popover-foreground: 0 0% 17%;
-        --primary: 0 100% 60%;
+        --primary: 210 79% 52%; /* main buttons = blue #228BE6 (Save buttons = --bp-button-save-bg) */
+        --bp-check: 210 79% 52%; /* checkbox/radio blue #228BE6 */
+        --bp-toggle: 160 82% 40%; /* toggle green #12B886 */
         --primary-foreground: 0 0% 100%;
         --secondary: 0 0% 96.1%;
         --secondary-foreground: 0 0% 17%;
@@ -44,7 +46,7 @@ body {
         --destructive-foreground: 0 0% 98%;
         --border: 220 13% 91%;
         --input: 220 13% 91%;
-        --ring: 0 100% 60%;
+        --ring: 210 79% 52%;
         --radius: 0.4rem;
     }
 }
@@ -99,7 +101,7 @@ body {
     font-variant-numeric: tabular-nums;
 }
 .k-item-qty {
-    font-size: calc(1.35rem * var(--k));
+    font-size: calc(1.1rem * var(--k));
     font-weight: 800;
     font-family: Poppins, sans-serif;
     line-height: 1.1;
@@ -118,15 +120,15 @@ body {
     font-weight: 600;
 }
 .k-action {
-    font-size: calc(0.95rem * var(--k));
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    min-height: calc(52px * var(--k));
+    font-size: calc(1rem * var(--k));
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    min-height: calc(46px * var(--k));
 }
 .k-col-title {
     font-size: calc(1rem * var(--k));
     font-weight: 800;
-    letter-spacing: 0.1em;
+    letter-spacing: 0;
     font-family: Poppins, sans-serif;
 }
 .k-col-count {
@@ -197,4 +199,47 @@ body {
     [data-debug-wrapper="true"] {
         display: contents !important;
     }
+}
+
+/* Minimal KOT card (2026-10-06) */
+.k-kot-no {
+    font-size: calc(1.1rem * var(--k));
+    font-weight: 800;
+    font-family: Poppins, sans-serif;
+    letter-spacing: -0.01em;
+}
+.k-badge {
+    font-size: calc(0.7rem * var(--k));
+    font-weight: 700;
+    line-height: 1;
+    padding: calc(4px * var(--k)) calc(8px * var(--k));
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.k-type-badge {
+    width: calc(44px * var(--k));
+    height: calc(44px * var(--k));
+}
+.k-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 50%;
+    min-width: 0;
+    font-size: calc(0.72rem * var(--k));
+    font-weight: 700;
+    line-height: 1;
+    color: #495057;
+    background: #F1F3F5;
+    padding: calc(4px * var(--k)) calc(7px * var(--k));
+    border-radius: 6px;
+    white-space: nowrap;
+    flex-shrink: 1;
+}
+.k-timer-pill {
+    font-size: calc(0.8rem * var(--k));
+    font-weight: 800;
+    padding: calc(5px * var(--k)) calc(9px * var(--k));
+    border-radius: 999px;
+    white-space: nowrap;
 }

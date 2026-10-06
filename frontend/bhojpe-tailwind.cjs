@@ -75,7 +75,13 @@ module.exports = {
           "secondary-text": "rgb(var(--bp-button-secondary-text-rgb) / <alpha-value>)",
           "outline-border": "rgb(var(--bp-button-outline-border-rgb) / <alpha-value>)",
           "outline-text": "rgb(var(--bp-button-outline-text-rgb) / <alpha-value>)",
-          "outline-bg": "rgb(var(--bp-button-outline-bg-rgb) / <alpha-value>)"
+          "outline-bg": "rgb(var(--bp-button-outline-bg-rgb) / <alpha-value>)",
+          "danger-bg": "rgb(var(--bp-button-danger-bg-rgb) / <alpha-value>)",
+          "danger-hover": "rgb(var(--bp-button-danger-hover-rgb) / <alpha-value>)",
+          "danger-text": "rgb(var(--bp-button-danger-text-rgb) / <alpha-value>)",
+          "save-bg": "rgb(var(--bp-button-save-bg-rgb) / <alpha-value>)",
+          "save-hover": "rgb(var(--bp-button-save-hover-rgb) / <alpha-value>)",
+          "save-text": "rgb(var(--bp-button-save-text-rgb) / <alpha-value>)"
         },
         "control": {
           "checkbox-checked": "rgb(var(--bp-control-checkbox-checked-rgb) / <alpha-value>)",

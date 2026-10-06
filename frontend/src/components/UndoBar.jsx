@@ -16,7 +16,7 @@ export const UndoBar = () => {
       <button
         data-testid="undo-btn"
         onClick={actions.undoLast}
-        className="min-h-[44px] px-3 rounded-md bg-bp-brand-primary font-bold text-sm flex items-center gap-1.5"
+        className="min-h-[44px] px-3 rounded-md bg-[var(--bp-button-primary-bg)] hover:bg-[var(--bp-button-primary-hover)] font-bold text-sm flex items-center gap-1.5"
       >
         <Undo2 className="w-4 h-4" /> UNDO
       </button>

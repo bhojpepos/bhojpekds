@@ -61,7 +61,7 @@ const Btn = ({ children, onClick, testId, variant = "default" }) => (
     onClick={onClick}
     className={`w-full min-h-[48px] rounded-md text-sm font-bold px-3 border ${
       variant === "primary"
-        ? "bg-bp-brand-primary text-white border-bp-brand-primary hover:brightness-95"
+        ? "bg-[var(--bp-button-primary-bg)] text-white border-[var(--bp-button-primary-bg)] hover:bg-[var(--bp-button-primary-hover)]"
         : variant === "danger"
         ? "bg-white text-bp-status-danger border-[#FECACA] hover:bg-bp-status-danger-soft"
         : "bg-white text-[#2C2C2C] border-[#E5E7EB] hover:bg-[#F7F7F7]"

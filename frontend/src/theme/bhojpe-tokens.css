@@ -3,23 +3,23 @@
  * To change the BhojPe brand color, edit BHOJPE_PRIMARY in tokens.json and re-run the build.
  */
 
-/* BHOJPE_PRIMARY = #FA5252 */
+/* BHOJPE_PRIMARY = #FF5252 */
 :root,
 [data-theme="light"] {
-  --bhojpe-primary: #FA5252;
-  --bp-brand-primary: #FA5252;
-  --bp-brand-primary-rgb: 250 82 82;
-  --bp-brand-hover: #E14A4A;
-  --bp-brand-hover-rgb: 225 74 74;
-  --bp-brand-pressed: #CD4343;
-  --bp-brand-pressed-rgb: 205 67 67;
+  --bhojpe-primary: #FF5252;
+  --bp-brand-primary: #FF5252;
+  --bp-brand-primary-rgb: 255 82 82;
+  --bp-brand-hover: #E64A4A;
+  --bp-brand-hover-rgb: 230 74 74;
+  --bp-brand-pressed: #D14343;
+  --bp-brand-pressed-rgb: 209 67 67;
   --bp-brand-soft: #FFF3F3;
   --bp-brand-soft-rgb: 255 243 243;
-  --bp-brand-subtle: #FEE0E0;
-  --bp-brand-subtle-rgb: 254 224 224;
+  --bp-brand-subtle: #FFE0E0;
+  --bp-brand-subtle-rgb: 255 224 224;
   --bp-brand-on-primary: #FFFFFF;
   --bp-brand-on-primary-rgb: 255 255 255;
-  --bp-brand-focus-ring: rgba(250, 82, 82, 0.28);
+  --bp-brand-focus-ring: rgba(255, 82, 82, 0.28);
   --bp-interactive-primary: #228BE6;
   --bp-interactive-primary-rgb: 34 139 230;
   --bp-interactive-hover: #1971C2;
@@ -71,8 +71,8 @@
   --bp-status-warning-text-rgb: 230 119 0;
   --bp-status-warning-soft: #FFF4D6;
   --bp-status-warning-soft-rgb: 255 244 214;
-  --bp-status-danger: #FA5252;
-  --bp-status-danger-rgb: 250 82 82;
+  --bp-status-danger: #FF5252;
+  --bp-status-danger-rgb: 255 82 82;
   --bp-status-danger-hover: #E03131;
   --bp-status-danger-hover-rgb: 224 49 49;
   --bp-status-danger-text: #E03131;
@@ -99,10 +99,10 @@
   --bp-status-neutral-rgb: 134 142 150;
   --bp-status-neutral-soft: #F1F3F5;
   --bp-status-neutral-soft-rgb: 241 243 245;
-  --bp-button-primary-bg: #FA5252;
-  --bp-button-primary-bg-rgb: 250 82 82;
-  --bp-button-primary-hover: #E14A4A;
-  --bp-button-primary-hover-rgb: 225 74 74;
+  --bp-button-primary-bg: #228BE6;
+  --bp-button-primary-bg-rgb: 34 139 230;
+  --bp-button-primary-hover: #1971C2;
+  --bp-button-primary-hover-rgb: 25 113 194;
   --bp-button-primary-text: #FFFFFF;
   --bp-button-primary-text-rgb: 255 255 255;
   --bp-button-secondary-bg: #FFFFFF;
@@ -117,6 +117,18 @@
   --bp-button-outline-text-rgb: 34 139 230;
   --bp-button-outline-bg: #FFFFFF;
   --bp-button-outline-bg-rgb: 255 255 255;
+  --bp-button-danger-bg: #FF5252;
+  --bp-button-danger-bg-rgb: 255 82 82;
+  --bp-button-danger-hover: #E03131;
+  --bp-button-danger-hover-rgb: 224 49 49;
+  --bp-button-danger-text: #FFFFFF;
+  --bp-button-danger-text-rgb: 255 255 255;
+  --bp-button-save-bg: #111111;
+  --bp-button-save-bg-rgb: 17 17 17;
+  --bp-button-save-hover: #2B2B2B;
+  --bp-button-save-hover-rgb: 43 43 43;
+  --bp-button-save-text: #FFFFFF;
+  --bp-button-save-text-rgb: 255 255 255;
   --bp-control-checkbox-checked: #228BE6;
   --bp-control-checkbox-checked-rgb: 34 139 230;
   --bp-control-checkbox-unchecked: #FFFFFF;
@@ -143,7 +155,7 @@
   --bp-control-menu-selected-bg-rgb: 241 243 245;
   --bp-control-menu-selected-text: #228BE6;
   --bp-control-menu-selected-text-rgb: 34 139 230;
-  --bp-control-focus-ring: rgba(250, 82, 82, 0.28);
+  --bp-control-focus-ring: rgba(255, 82, 82, 0.28);
   --bp-badge-success-bg: #E9F7EF;
   --bp-badge-success-bg-rgb: 233 247 239;
   --bp-badge-success-text: #2B8A3E;
@@ -166,8 +178,8 @@
   --bp-badge-premium-text-rgb: 112 72 232;
   --bp-badge-brand-bg: #FFF3F3;
   --bp-badge-brand-bg-rgb: 255 243 243;
-  --bp-badge-brand-text: #E14A4A;
-  --bp-badge-brand-text-rgb: 225 74 74;
+  --bp-badge-brand-text: #E64A4A;
+  --bp-badge-brand-text-rgb: 230 74 74;
   --bp-table-available-bg: #C8E6A0;
   --bp-table-available-bg-rgb: 200 230 160;
   --bp-table-available-text: #1F1F1F;
@@ -200,8 +212,8 @@
   --bp-kds-preparing-rgb: 245 159 0;
   --bp-kds-ready: #2FB344;
   --bp-kds-ready-rgb: 47 179 68;
-  --bp-kds-delayed: #FA5252;
-  --bp-kds-delayed-rgb: 250 82 82;
+  --bp-kds-delayed: #FF5252;
+  --bp-kds-delayed-rgb: 255 82 82;
   --bp-kds-completed: #2FB344;
   --bp-kds-completed-rgb: 47 179 68;
   --bp-order-pending: #F59F00;
@@ -214,10 +226,10 @@
   --bp-order-ready-rgb: 47 179 68;
   --bp-order-completed: #2FB344;
   --bp-order-completed-rgb: 47 179 68;
-  --bp-order-cancelled: #FA5252;
-  --bp-order-cancelled-rgb: 250 82 82;
-  --bp-order-rejected: #FA5252;
-  --bp-order-rejected-rgb: 250 82 82;
+  --bp-order-cancelled: #FF5252;
+  --bp-order-cancelled-rgb: 255 82 82;
+  --bp-order-rejected: #FF5252;
+  --bp-order-rejected-rgb: 255 82 82;
   --bp-order-delivery: #12B886;
   --bp-order-delivery-rgb: 18 184 134;
   --bp-order-online: #228BE6;
@@ -230,8 +242,8 @@
   --bp-room-occupied-rgb: 34 139 230;
   --bp-room-housekeeping: #F59F00;
   --bp-room-housekeeping-rgb: 245 159 0;
-  --bp-room-maintenance: #FA5252;
-  --bp-room-maintenance-rgb: 250 82 82;
+  --bp-room-maintenance: #FF5252;
+  --bp-room-maintenance-rgb: 255 82 82;
   --bp-room-check-in: #228BE6;
   --bp-room-check-in-rgb: 34 139 230;
   --bp-room-check-out: #F59F00;
@@ -256,7 +268,7 @@
   --bp-palette-orange-500: #F59F00;
   --bp-palette-orange-700: #E67700;
   --bp-palette-red-50: #FFF5F5;
-  --bp-palette-red-500: #FA5252;
+  --bp-palette-red-500: #FF5252;
   --bp-palette-red-700: #E03131;
   --bp-palette-red-800: #C92A2A;
   --bp-palette-purple-50: #F3F0FF;
@@ -273,6 +285,9 @@
   --bp-palette-gray-700: #495057;
   --bp-palette-gray-900: #212529;
   --bp-palette-gray-1000: #000000;
+  --bp-palette-ink-700: #3A3A3A;
+  --bp-palette-ink-800: #2B2B2B;
+  --bp-palette-ink-900: #111111;
   --bp-font-family: 'Montserrat', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
   --bp-font-size-xs: 11px;
   --bp-font-size-sm: 12px;
@@ -303,8 +318,8 @@
 
 [data-theme="dark"],
 .dark {
-  --bp-brand-soft: rgba(250, 82, 82, 0.14);
-  --bp-brand-subtle: rgba(250, 82, 82, 0.24);
+  --bp-brand-soft: rgba(255, 82, 82, 0.14);
+  --bp-brand-subtle: rgba(255, 82, 82, 0.24);
   --bp-interactive-primary: #4DABF7;
   --bp-interactive-primary-rgb: 77 171 247;
   --bp-interactive-hover: #228BE6;
@@ -355,6 +370,12 @@
   --bp-button-secondary-text-rgb: 241 243 245;
   --bp-button-outline-bg: #1A1D23;
   --bp-button-outline-bg-rgb: 26 29 35;
+  --bp-button-save-bg: #F1F3F5;
+  --bp-button-save-bg-rgb: 241 243 245;
+  --bp-button-save-hover: #DEE2E6;
+  --bp-button-save-hover-rgb: 222 226 230;
+  --bp-button-save-text: #111111;
+  --bp-button-save-text-rgb: 17 17 17;
   --bp-control-checkbox-unchecked: #1A1D23;
   --bp-control-checkbox-unchecked-rgb: 26 29 35;
   --bp-control-radio-unselected: #1A1D23;
@@ -385,7 +406,7 @@
   --bp-badge-premium-bg: rgba(132, 94, 247, 0.16);
   --bp-badge-premium-text: #B197FC;
   --bp-badge-premium-text-rgb: 177 151 252;
-  --bp-badge-brand-bg: rgba(250, 82, 82, 0.14);
-  --bp-badge-brand-text: #FA5252;
-  --bp-badge-brand-text-rgb: 250 82 82;
+  --bp-badge-brand-bg: rgba(255, 82, 82, 0.14);
+  --bp-badge-brand-text: #FF5252;
+  --bp-badge-brand-text-rgb: 255 82 82;
 }

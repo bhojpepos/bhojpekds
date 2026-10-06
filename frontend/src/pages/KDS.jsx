@@ -37,7 +37,8 @@ export default function KDS() {
     const q = query.trim().toLowerCase();
     return state.orders.filter((o) => {
       if (state.settings.stationFilterOn && o.station !== state.station) return false;
-      if (["dine-in", "takeaway", "delivery", "room-service"].includes(filter) && o.type !== filter) return false;
+      if (["dine-in", "delivery", "room-service"].includes(filter) && o.type !== filter) return false;
+      if (filter === "takeaway" && o.type !== "takeaway" && o.type !== "pickup") return false;
       if (filter === "delayed" && ageLevel(ageOf(o, now).seconds, state.settings.slaMinutes * 60) !== "delayed") return false;
       if (q) {
         const hay = `${o.kot} ${o.table || ""} ${o.refNo || ""}`.toLowerCase();
@@ -48,11 +49,19 @@ export default function KDS() {
   }, [state.orders, state.settings.stationFilterOn, state.station, filter, query, now]);
 
   const byStatus = (st) => filtered.filter((o) => o.status === st);
+  // Filter chips par counts (station filter ke baad, type filter se pehle)
+  const counts = useMemo(() => {
+    const base = state.orders.filter((o) => !(state.settings.stationFilterOn && o.station !== state.station));
+    const c = { all: base.length };
+    ["dine-in", "takeaway", "delivery", "room-service"].forEach((t) => { c[t] = base.filter((o) => o.type === t || (t === "takeaway" && o.type === "pickup")).length; });
+    c.delayed = base.filter((o) => ageLevel(ageOf(o, now).seconds, state.settings.slaMinutes * 60) === "delayed").length;
+    return c;
+  }, [state.orders, state.settings.stationFilterOn, state.station, state.settings.slaMinutes, now]);
   const mode = state.settings.displayMode;
   const offline = !state.connection.serverConnected || !state.connection.internet;
 
   return (
-    <div className={`kds-scope mode-${mode} h-screen flex flex-col bg-[#F7F7F7] overflow-hidden`} data-testid="kds-screen">
+    <div className={`kds-scope mode-${mode} h-screen flex flex-col bg-[#F8F9FA] overflow-hidden`} data-testid="kds-screen">
       <Header onOpenSidebar={() => setSidebarOpen(true)} />
 
       {offline && (
@@ -68,6 +77,7 @@ export default function KDS() {
         setFilter={setFilter}
         query={query}
         setQuery={setQuery}
+        counts={counts}
         stations={state.connection.stations}
         stationFilter={state.settings.stationFilterOn ? state.station : "all"}
         onStationFilterChange={(value) => {
@@ -100,13 +110,13 @@ export default function KDS() {
         ))}
       </div>}
 
-      <main className="flex-1 min-h-0 p-3 sm:p-5">
+      <main className="flex-1 min-h-0 p-3 sm:p-4">
         {isNarrow ? (
           <div className="h-full min-h-0">
             <StatusColumn status={mobileStatus} orders={byStatus(mobileStatus)} />
           </div>
         ) : (
-          <div className="grid h-full min-h-0 gap-4 lg:gap-5 grid-cols-2 xl:grid-cols-4">
+          <div className="grid h-full min-h-0 gap-4 grid-cols-2 xl:grid-cols-4">
             {STATUS_ORDER.map((st) => (
               <StatusColumn key={st} status={st} orders={byStatus(st)} />
             ))}

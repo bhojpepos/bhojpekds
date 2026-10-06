@@ -416,6 +416,9 @@ export const useKds = () => useContext(Ctx);
 export function ageOf(order, now) {
   const created = typeof order.createdAt === "number" ? order.createdAt : Date.parse(order.createdAt);
   const s = Math.max(0, Math.floor((now - created) / 1000));
+  // 60 min se upar "1h 05m", 24h se upar "1d 12h" (pehle "2190:41" jaisa dikhta tha)
+  if (s >= 86400) return { seconds: s, text: `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h` };
+  if (s >= 3600) return { seconds: s, text: `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}m` };
   const mm = String(Math.floor(s / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return { seconds: s, text: `${mm}:${ss}` };

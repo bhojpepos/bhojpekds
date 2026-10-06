@@ -156,7 +156,7 @@ export const PrinterConfig = () => {
               toast.success("Printer settings saved");
               checkStatus();
             }}
-            className="w-full min-h-[48px] rounded-md bg-bp-brand-primary text-white text-sm font-bold"
+            className="w-full min-h-[48px] rounded-md bg-[var(--bp-button-save-bg)] hover:bg-[var(--bp-button-save-hover)] text-white text-sm font-bold"
           >
             SAVE PRINTER
           </button>
@@ -250,7 +250,7 @@ export const RecapConfig = () => {
           await actions.saveConfig({ recapEmail: v });
           toast.success("Recap recipient saved");
         }}
-        className="w-full min-h-[48px] rounded-md bg-bp-brand-primary text-white text-sm font-bold"
+        className="w-full min-h-[48px] rounded-md bg-[var(--bp-button-save-bg)] hover:bg-[var(--bp-button-save-hover)] text-white text-sm font-bold"
       >
         SAVE RECIPIENT
       </button>

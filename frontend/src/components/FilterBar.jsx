@@ -4,10 +4,10 @@ import { light as BP } from '../theme/tokens'
 
 const FILTERS = [
   { id: "all", label: "All" },
-  { id: "delayed", label: "Delayed" },
-  { id: "dine-in", label: "Dine-in" },
-  { id: "takeaway", label: "Takeaway" },
+  { id: "dine-in", label: "Dine In" },
+  { id: "takeaway", label: "Pick Up" },
   { id: "delivery", label: "Delivery" },
+  { id: "delayed", label: "Delayed" },
   // Hotel guest QR orders (order_type='room_service' in billing) — lets one
   // shared screen isolate just room orders instead of needing a second
   // physical device, when the hotel and restaurant share a branch.
@@ -19,21 +19,24 @@ const FILTERS = [
 // name; onStationFilterChange(value) flips state.settings.stationFilterOn +
 // state.station, the same fields the Kitchen Station settings tab already
 // uses — this is just a faster, always-visible way to reach the same filter.
-export const FilterBar = ({ filter, setFilter, query, setQuery, stations = [], stationFilter = "all", onStationFilterChange }) => (
-  <div className="flex flex-col lg:flex-row gap-2 lg:items-center px-3 sm:px-5 py-2.5 bg-white border-b border-[#E5E7EB]">
+export const FilterBar = ({ filter, setFilter, query, setQuery, counts = {}, stations = [], stationFilter = "all", onStationFilterChange }) => (
+  <div className="flex flex-col lg:flex-row gap-2 lg:items-center px-3 sm:px-4 py-2.5 bg-white border-b border-[#EEF0F2]">
     <div className="flex gap-2 overflow-x-auto thin-scroll pb-1 lg:pb-0">
       {FILTERS.map((f) => (
         <button
           key={f.id}
           data-testid={`filter-${f.id}`}
           onClick={() => setFilter(f.id)}
-          className={`shrink-0 min-h-[44px] px-3.5 rounded-md text-sm font-bold border transition-colors ${
+          className={`shrink-0 h-[40px] px-4 rounded-xl text-[14.5px] font-bold inline-flex items-center gap-2 transition-colors ${
             filter === f.id
-              ? "bg-bp-interactive-primary text-white border-bp-interactive-primary"
-              : "bg-white text-[#2C2C2C] border-[#E5E7EB] hover:bg-[#F7F7F7]"
+              ? "bg-[var(--bp-button-primary-bg)] text-white"
+              : "bg-[#F1F3F5] text-[#212529] hover:bg-[#E9ECEF]"
           }`}
         >
           {f.label}
+          {counts[f.id] != null && (
+            <span className={`text-[12px] font-bold ${filter === f.id ? "text-white/85" : "text-[#868E96]"}`}>{counts[f.id]}</span>
+          )}
         </button>
       ))}
     </div>
@@ -43,7 +46,7 @@ export const FilterBar = ({ filter, setFilter, query, setQuery, stations = [], s
         data-testid="station-filter-select"
         value={stationFilter}
         onChange={(e) => onStationFilterChange?.(e.target.value)}
-        className="shrink-0 min-h-[44px] px-3 rounded-md border border-[#E5E7EB] bg-white text-sm font-bold text-[#2C2C2C] outline-none focus:border-bp-brand-primary"
+        className="shrink-0 h-[40px] px-3 rounded-xl border border-[#E9ECEF] bg-white text-sm font-bold text-[#212529] outline-none focus:border-[#228BE6]"
       >
         <option value="all">All Stations</option>
         {stations.map((s) => (
@@ -60,8 +63,8 @@ export const FilterBar = ({ filter, setFilter, query, setQuery, stations = [], s
         data-testid="kds-search-input"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search KOT / Table / Token"
-        className="w-full min-h-[44px] pl-9 pr-9 rounded-md border border-[#E5E7EB] bg-white outline-none focus:border-bp-brand-primary text-sm"
+        placeholder="KOT / table search…"
+        className="w-full h-[40px] pl-9 pr-9 rounded-xl border border-[#E9ECEF] bg-white outline-none focus:border-[#228BE6] text-sm"
       />
       {query && (
         <button
