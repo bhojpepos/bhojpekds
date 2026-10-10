@@ -32,7 +32,7 @@ export const ProfileSection = () => {
       <button
         data-testid="settings-logout-btn"
         onClick={() => { actions.setPaired(false); navigate("/setup"); }}
-        className="w-full min-h-[48px] rounded-md text-sm font-bold px-3 border bg-white text-bp-brand-primary border-[#FECACA] hover:bg-bp-brand-soft"
+        className="w-full min-h-[48px] rounded-md text-sm font-bold px-3 border bg-white text-bp-brand-primary border-[#FFD8A8] hover:bg-bp-brand-soft"
       >
         <span className="flex items-center justify-center gap-2"><LogOut className="w-4 h-4" /> Logout</span>
       </button>

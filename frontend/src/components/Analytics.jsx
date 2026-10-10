@@ -121,7 +121,7 @@ export const WeeklyTrends = () => {
         </div>
         <span
           className="text-sm font-extrabold flex items-center gap-1 shrink-0"
-          style={{ color: up ? "#DC2626" : "#047857" }}
+          style={{ color: up ? "#E8590C" : "#047857" }}
         >
           {up ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
           {up ? "+" : "−"}

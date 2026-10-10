@@ -17,6 +17,7 @@ from starlette.middleware.cors import CORSMiddleware
 from models import (
     AvailabilityUpdate,
     BillingItemStatusUpdate,
+    BillingOrderOutcome,
     ConfigUpdate,
     ItemDoneUpdate,
     KdsConfig,
@@ -27,6 +28,7 @@ from models import (
     PairRequest,
     PrintJob,
     PriorityUpdate,
+    RejectRequest,
     StationUpdate,
     StatusUpdate,
     now_iso,
@@ -57,6 +59,31 @@ STAMP = {"cooking": "startedAt", "ready": "readyAt", "completed": "completedAt"}
 # push back into billing (order_items.kitchen_status has no analog for "new"
 # or bhojpekds's local-only "completed"/ticket-cleared state).
 BILLING_KITCHEN_STATUS = {"cooking": "preparing", "ready": "ready"}
+
+# Echo guard (2026-10-09): a KDS Accept / Food Ready is relayed to billing one
+# item at a time, and billing pushes back an aggregate per item — after the
+# 1st item it still sees the others as "pending" and answers "new", which
+# flipped the ticket back to Accept until the last item went through. Billing
+# pushes that move a ticket BACKWARDS this soon after our own change are
+# those echoes, so they are ignored.
+ECHO_GUARD_SECONDS = 60
+_bg_tasks: set = set()
+
+
+def _spawn(coro) -> None:
+    task = asyncio.create_task(coro)
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+
+
+def _seconds_since(iso: Optional[str]) -> float:
+    try:
+        then = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        if then.tzinfo is None:
+            then = then.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - then).total_seconds()
+    except (TypeError, ValueError):
+        return float("inf")
 
 
 # ---------------- realtime hub ----------------
@@ -147,10 +174,26 @@ async def brand_logo():
             resp = await http.get(f"{BILLING_API_BASE_URL}/api/v1/app/brand-logo")
         payload = resp.json()
     except httpx.HTTPError:
-        return {"url": None}
+        return {"url": None, "icon_url": None, "kds_url": None}
 
     data = payload.get("data", payload)
-    return {"url": data.get("url")}
+    # kds_url = super-admin's KDS-only logo (Brand Logo page → KDS Logo);
+    # the frontend falls back to the platform logo when it's empty.
+    return {"url": data.get("url"), "icon_url": data.get("icon_url"), "kds_url": data.get("kds_logo_url")}
+
+
+@api_router.get("/login-image")
+async def login_image():
+    """Chef-login screen image set by super-admin (Login Image page → Bhojpe
+    KDS; billing's PlatformSetting 'login_image_kds'). Public, like brand-logo."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.get(f"{BILLING_API_BASE_URL}/api/v1/app/login-image")
+        payload = resp.json()
+    except (httpx.HTTPError, ValueError):
+        return {"url": None, "version": None}
+    kds = (payload.get("data", payload) or {}).get("kds") or {}
+    return {"url": kds.get("url"), "version": kds.get("version")}
 
 
 @api_router.post("/pair")
@@ -204,6 +247,9 @@ async def pair(body: PairRequest):
         # a fresh code entry) can reuse it against billing's public
         # pos/branch-staff and auth/pos-login endpoints.
         "syncCode": body.syncCode,
+        # POS machine's LAN IP/port from the Pair Code (bhojpe-poss sends it).
+        "posIp": data.get("pos_ip"),
+        "posPort": data.get("pos_port"),
     }
     await db.pairing.update_one({"_id": device_token}, {"$set": pairing_doc}, upsert=True)
 
@@ -217,6 +263,8 @@ async def pair(body: PairRequest):
         "branch": pairing_doc["branchName"],
         "server": "BhojPe Server",
         "stations": pairing_doc["stations"],
+        "posIp": pairing_doc["posIp"],
+        "posPort": pairing_doc["posPort"],
         "lastSync": pairing_doc["pairedAt"],
     }
 
@@ -565,9 +613,13 @@ def ticket_lines(order: dict) -> List[str]:
         "-" * 32,
     ]
     for i in order.get("items", []):
-        lines.append(f"{i['qty']} x {i['name']}")
-        if i.get("note"):
-            lines.append(f"   >> {i['note']}")
+        variant = f" ({i['variant']})" if i.get("variant") else ""
+        lines.append(f"{i['qty']} x {i['name']}{variant}")
+        if i.get("addons"):
+            lines.append(f"   + {', '.join(i['addons'])}")
+        notes = [n for n in [*(i.get("specialNotes") or []), i.get("note")] if n]
+        if notes:
+            lines.append(f"   >> {', '.join(notes)}")
     lines.append("-" * 32)
     if order.get("note"):
         lines.append(f"NOTE: {order['note']}")
@@ -705,6 +757,7 @@ async def set_status(
         raise HTTPException(400, "Invalid status")
     doc = await _get_order(order_id)
     update = _status_update_fields(body.status)
+    update["lastKdsStatusAt"] = now_iso()
     await db.orders.update_one({"_id": doc["_id"]}, {"$set": update})
     out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
     await hub.broadcast("order.updated", out, branch_id=out.get("branchId"))
@@ -716,7 +769,9 @@ async def set_status(
         f"{doc.get('status')} -> {body.status}" if backwards else ACTION_LABELS.get(body.status),
     )
     if not backwards:
-        await _relay_status_to_billing(doc, ctx, body.status)
+        # Background — the chef's screen shouldn't wait for one billing
+        # round-trip per item before the ticket answers.
+        _spawn(_relay_status_to_billing(doc, ctx, body.status))
     return out
 
 
@@ -741,12 +796,50 @@ async def update_status_by_billing_item(body: BillingItemStatusUpdate):
     if body.sentAt < doc.get("lastBillingStatusAt", ""):
         return order_out(doc)
 
+    cur = doc.get("status", "new")
+    if (
+        cur in STATUS_FLOW
+        and STATUS_FLOW.index(body.status) < STATUS_FLOW.index(cur)
+        and _seconds_since(doc.get("lastKdsStatusAt")) < ECHO_GUARD_SECONDS
+    ):
+        return order_out(doc)
+
     update = _status_update_fields(body.status)
     update["lastBillingStatusAt"] = body.sentAt
     await db.orders.update_one({"_id": doc["_id"]}, {"$set": update})
     out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
     await hub.broadcast("order.updated", out, branch_id=out.get("branchId"))
     return out
+
+
+@api_router.patch("/pos/orders/by-billing-order/outcome")
+async def update_outcome_by_billing_order(body: BillingOrderOutcome):
+    """Billing → KDS (2026-10-08): the order was served / delivered / picked
+    up (or paid) on the POS side, so its KDS tickets finish automatically and
+    show "Served" / "Delivered" / "Picked". served/delivered/picked complete
+    the ticket whatever its kitchen state (food has physically left);
+    a plain payment ("completed") only finishes tickets already Food Ready —
+    a prepaid pickup paid before cooking must stay on the line.
+    """
+    type_outcome = {"dine-in": "served", "delivery": "delivered", "takeaway": "picked", "pickup": "picked", "room-service": "served"}
+    docs = await db.orders.find({"billingOrderId": body.billingOrderId}).to_list(200)
+    updated = []
+    for doc in docs:
+        if doc.get("status") == "completed":
+            continue
+        if body.outcome == "completed" and doc.get("status") != "ready":
+            continue
+        outcome = body.outcome if body.outcome in ("served", "delivered", "picked") else type_outcome.get(doc.get("type"), "served")
+        update = _status_update_fields("completed")
+        if not doc.get("readyAt"):
+            update["readyAt"] = update.get("completedAt")
+        update["outcome"] = outcome
+        await db.orders.update_one({"_id": doc["_id"]}, {"$set": update})
+        out = order_out(await db.orders.find_one({"_id": doc["_id"]}))
+        await hub.broadcast("order.updated", out, branch_id=out.get("branchId"))
+        await log_event(out, "status.completed", "POS", f"auto {outcome}")
+        updated.append(out["id"])
+    return {"ok": True, "updated": updated}
 
 
 @api_router.patch("/orders/{order_id}/priority")
@@ -770,6 +863,55 @@ async def set_item_done(order_id: str, index: int, body: ItemDoneUpdate, x_actor
     name = doc["items"][index].get("name")
     await log_event(out, "item", x_actor, f"{'ticked' if body.done else 'unticked'} {name}")
     return out
+
+
+@api_router.post("/orders/{order_id}/reject")
+async def reject_order(
+    order_id: str,
+    body: RejectRequest,
+    x_actor: Optional[str] = Header(None),
+    ctx: Optional[dict] = Depends(get_branch_context),
+):
+    """✕ Reject (2026-10-09) — kitchen refuses a KOT before accepting it.
+    The ticket's own billing items are cancelled on the POS side FIRST (bill
+    recalculated there); the KDS ticket is removed only once billing agreed,
+    so the two never disagree. A ticket with no billing link (local/test)
+    is just removed here.
+    """
+    doc = await _get_order(order_id)
+    if doc.get("status") != "new":
+        raise HTTPException(409, "Accept ke baad KOT reject nahi ho sakta")
+    item_kitchens = doc.get("itemKitchenIds") or {}
+    fallback_kitchen = doc.get("kitchenId")
+    items = [
+        {"id": iid, "kitchen_id": item_kitchens.get(iid) or fallback_kitchen}
+        for iid in (doc.get("billingOrderItemIds") or [])
+        if item_kitchens.get(iid) or fallback_kitchen
+    ]
+    if items:
+        if not ctx or not ctx.get("chefToken"):
+            raise HTTPException(401, "Billing se connect nahi — KOT reject nahi hua")
+        try:
+            async with httpx.AsyncClient(timeout=15) as http:
+                res = await http.post(
+                    f"{BILLING_API_BASE_URL}/api/v1/kitchen-items/reject",
+                    json={"items": items, "reason": (body.reason or "").strip() or None},
+                    headers={"Authorization": f"Bearer {ctx['chefToken']}", "Accept": "application/json"},
+                )
+        except httpx.HTTPError as e:
+            logger.warning(f"[reject] billing call failed for order {order_id}: {e}")
+            raise HTTPException(502, "Billing tak nahi pahunch paye — KOT reject nahi hua")
+        if res.status_code >= 400 and res.status_code != 404:
+            try:
+                msg = res.json().get("message")
+            except ValueError:
+                msg = None
+            raise HTTPException(res.status_code if res.status_code < 500 else 502, msg or "Billing ne KOT reject nahi kiya")
+    out = order_out(doc)
+    await db.orders.delete_one({"_id": doc["_id"]})
+    await hub.broadcast("order.removed", {"id": str(doc["_id"])}, branch_id=doc.get("branchId"))
+    await log_event(out, "rejected", x_actor, f"Rejected{': ' + body.reason.strip() if (body.reason or '').strip() else ''}")
+    return {"ok": True, "id": str(doc["_id"])}
 
 
 @api_router.delete("/orders/{order_id}")

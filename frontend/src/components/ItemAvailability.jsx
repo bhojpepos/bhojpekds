@@ -53,8 +53,8 @@ export const ItemAvailability = () => {
                 data-testid={`item-status-${m.id}`}
                 className="text-[10px] font-extrabold tracking-wider rounded px-1.5 py-0.5 shrink-0"
                 style={{
-                  background: m.available ? "#ECFDF5" : BP.brand.soft,
-                  color: m.available ? "#047857" : "#DC2626",
+                  background: m.available ? "#ECFDF5" : "#FFF4E6",
+                  color: m.available ? "#047857" : "#E8590C",
                 }}
               >
                 {m.available ? "IN STOCK" : "OUT"}

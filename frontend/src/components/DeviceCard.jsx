@@ -43,7 +43,7 @@ export const DeviceCard = ({ device, onRename, onDisconnect }) => {
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-bold truncate">{device.name}</div>
-        <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: connected ? "#16A34A" : "#DC2626" }}>
+        <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: connected ? "#16A34A" : "#E8590C" }}>
           <Dot ok={connected} />
           {connected ? "Connected" : "Offline"}
         </div>
@@ -66,7 +66,7 @@ export const DeviceCard = ({ device, onRename, onDisconnect }) => {
         onClick={handleDisconnect}
         disabled={busy}
         title="Disconnect"
-        className="w-9 h-9 rounded-md border border-[#FECACA] bg-white hover:bg-bp-brand-soft text-[#DC2626] flex items-center justify-center disabled:opacity-40 shrink-0"
+        className="w-9 h-9 rounded-md border border-[#FFD8A8] bg-white hover:bg-bp-brand-soft text-[#E8590C] flex items-center justify-center disabled:opacity-40 shrink-0"
       >
         <Unplug className="w-4 h-4" />
       </button>

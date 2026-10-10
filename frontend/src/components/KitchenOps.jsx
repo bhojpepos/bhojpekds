@@ -60,8 +60,8 @@ export const PrintQueue = () => {
             <span
               className="text-[11px] font-extrabold tracking-wider rounded px-1.5 py-0.5"
               style={{
-                background: j.status === "printed" ? "#ECFDF5" : j.status === "failed" ? BP.status.dangerSoft : "#FFFBEB",
-                color: j.status === "printed" ? "#047857" : j.status === "failed" ? "#DC2626" : "#B45309",
+                background: j.status === "printed" ? "#ECFDF5" : j.status === "failed" ? "#FFF4E6" : "#FFFBEB",
+                color: j.status === "printed" ? "#047857" : j.status === "failed" ? "#E8590C" : "#B45309",
               }}
             >
               {j.status.toUpperCase()}
@@ -164,7 +164,7 @@ export const ShiftSummary = () => {
           data.slowestDishes.map((d) => (
             <div key={d.name} className="flex items-center justify-between py-1.5 border-b border-[#F0F0F0] last:border-0" data-testid={`slow-dish-${d.name.replace(/\s+/g, "-").toLowerCase()}`}>
               <span className="text-sm font-semibold">{d.name}</span>
-              <span className="text-sm font-extrabold text-[#DC2626]">{formatDuration(d.avgSeconds)}</span>
+              <span className="text-sm font-extrabold text-[#E8590C]">{formatDuration(d.avgSeconds)}</span>
             </div>
           ))
         )}

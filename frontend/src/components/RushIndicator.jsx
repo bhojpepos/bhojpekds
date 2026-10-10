@@ -6,7 +6,7 @@ import { light as BP } from '../theme/tokens'
 const LEVEL = {
   "on-track": { label: "ON TRACK", bg: "#ECFDF5", fg: "#047857", Icon: Gauge },
   busy: { label: "BUSY", bg: "#FFF7ED", fg: "#B45309", Icon: Clock },
-  rush: { label: "RUSH HOUR", bg: BP.brand.soft, fg: "#DC2626", Icon: Flame },
+  rush: { label: "RUSH HOUR", bg: "#FFF4E6", fg: "#E8590C", Icon: Flame },
 };
 
 export const RushIndicator = () => {

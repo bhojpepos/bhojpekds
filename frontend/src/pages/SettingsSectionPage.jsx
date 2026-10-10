@@ -18,14 +18,17 @@ import { toast } from "sonner";
 import { light as BP } from '../theme/tokens'
 import {
   ArrowLeft, Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv,
-  Bell, Maximize2, RotateCcw, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History,
+  Bell, Maximize2, RotateCcw, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History, SlidersHorizontal,
 } from "lucide-react";
+import { KdsGeneralSettings } from "@/components/KdsGeneralSettings";
+import { Header } from "@/components/Header";
 
 // Every Settings section, each its own full-page screen at /settings/:id —
 // previously these were tabs crammed into one small slide-over drawer
 // (SettingsDrawer.jsx, now unused). Shared here so KdsSidebar can list the
 // exact same sections/icons without duplicating this array.
 export const SETTINGS_SECTIONS = [
+  { id: "general", label: "General Settings", Icon: SlidersHorizontal },
   { id: "connection", label: "Connection", Icon: Plug },
   { id: "devices", label: "Devices", Icon: MonitorSmartphone },
   { id: "station", label: "Kitchen Station", Icon: ChefHat },
@@ -63,7 +66,7 @@ const Btn = ({ children, onClick, testId, variant = "default" }) => (
       variant === "primary"
         ? "bg-[var(--bp-button-primary-bg)] text-white border-[var(--bp-button-primary-bg)] hover:bg-[var(--bp-button-primary-hover)]"
         : variant === "danger"
-        ? "bg-white text-bp-status-danger border-[#FECACA] hover:bg-bp-status-danger-soft"
+        ? "bg-white text-bp-status-danger border-[#FFD8A8] hover:bg-bp-status-danger-soft"
         : "bg-white text-[#2C2C2C] border-[#E5E7EB] hover:bg-[#F7F7F7]"
     }`}
   >
@@ -89,6 +92,8 @@ export default function SettingsSectionPage() {
 
   const body = () => {
     switch (sectionId) {
+      case "general":
+        return <KdsGeneralSettings onSaved={() => { toast.success("Settings saved"); navigate("/"); }} onCancel={() => navigate("/")} />;
       case "connection":
         return (
           <div className="space-y-3">
@@ -306,7 +311,8 @@ export default function SettingsSectionPage() {
 
   return (
     <div className="h-screen flex flex-col bg-[#F7F7F7]">
-      <header className="px-4 py-3 flex items-center gap-3 bg-white border-b border-[#E5E7EB] shrink-0">
+      <Header />
+      <header className="px-4 py-2.5 flex items-center gap-3 bg-white border-b border-[#E5E7EB] shrink-0">
         <button
           data-testid="settings-back-btn"
           onClick={() => navigate("/")}
@@ -317,7 +323,7 @@ export default function SettingsSectionPage() {
         {section && <section.Icon className="w-5 h-5 text-bp-brand-primary" />}
         <h1 className="font-head font-extrabold text-lg text-[#1A1A1A]">{section?.label || "Settings"}</h1>
       </header>
-      <div className={`flex-1 overflow-y-auto thin-scroll p-4 w-full ${sectionId === "items" ? "" : "max-w-2xl mx-auto"}`}>{body()}</div>
+      <div className={`flex-1 overflow-y-auto thin-scroll p-4 w-full ${sectionId === "items" || sectionId === "general" ? "" : "max-w-2xl mx-auto"}`}>{body()}</div>
     </div>
   );
 }

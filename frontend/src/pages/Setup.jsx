@@ -4,13 +4,14 @@ import { useKds } from "@/state/kdsState";
 import * as api from "@/services/apiService";
 import { unlockAudio } from "@/services/soundService";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, ArrowRight, KeyRound, Link2, CornerDownLeft, RefreshCw, ChefHat } from "lucide-react";
-import { BrandMark } from "@/components/BrandMark";
+import { Loader2, CheckCircle2, ArrowRight, KeyRound, Link2, CornerDownLeft, RefreshCw } from "lucide-react";
+import { fetchLoginImage, getCachedLoginImage } from "@/services/apiService";
+import { KdsGeneralSettings } from "@/components/KdsGeneralSettings";
+import { Header } from "@/components/Header";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { light as BP } from '../theme/tokens'
 
 // Login / pairing screen ka accent = main button blue #228BE6 (pehle laal tha).
-const ACCENT = BP.button.primaryBg;
+const ACCENT = "#228BE6"; // KDS blue (no red in KDS, 2026-10-08)
 const BLACK = "#111111";
 
 // Same gradient + pill language as bhojpe-poss's ConnectPage.jsx/LoginPage.jsx
@@ -18,45 +19,30 @@ const BLACK = "#111111";
 // two-stage shape (connect, then passcode), plus a bhojpekds-specific middle
 // stage (pick which kitchen station this screen is for). The passcode stage
 // additionally mirrors LoginPage.jsx's left-illustration/right-form split.
-/* Chef header card — login screen ke left me (light border) */
-const ChefHeaderCard = ({ restaurant, station }) => (
-  <div className="w-full max-w-[400px] rounded-[24px] border border-[#E9ECEF] bg-white/80 px-8 py-10 text-center" data-testid="chef-login-header">
-    <span className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-5" style={{ background: "#E7F5FF", color: ACCENT }}>
-      <ChefHat className="w-10 h-10" strokeWidth={1.7} />
-    </span>
-    <div className="text-[12px] font-bold text-black/40 tracking-[0.2em] uppercase mb-1.5">Kitchen Display</div>
-    <div className="text-[28px] font-extrabold leading-tight tracking-tight text-[#111111]">Chef Login</div>
-    <div className="text-[13.5px] text-black/55 mt-1.5">Unlock Kitchen Display with Passcode</div>
-    {(restaurant || station) && (
-      <div className="mt-6 pt-5 border-t border-[#F1F3F5] grid grid-cols-2 gap-3 text-left">
-        <div className="rounded-xl bg-[#F8F9FA] px-3.5 py-2.5 min-w-0">
-          <div className="text-[10.5px] font-bold uppercase tracking-wider text-black/40">Restaurant</div>
-          <div className="text-[13.5px] font-bold text-[#111111] truncate">{restaurant || "—"}</div>
-        </div>
-        <div className="rounded-xl bg-[#F8F9FA] px-3.5 py-2.5 min-w-0">
-          <div className="text-[10.5px] font-bold uppercase tracking-wider text-black/40">Station</div>
-          <div className="text-[13.5px] font-bold text-[#111111] truncate">{station || "—"}</div>
-        </div>
-      </div>
-    )}
-  </div>
-);
+/* Super-admin's KDS login image (Login Image page → Bhojpe KDS). */
+const useLoginImage = () => {
+  const [url, setUrl] = React.useState(() => getCachedLoginImage());
+  React.useEffect(() => {
+    fetchLoginImage().then((u) => setUrl(u || null)).catch(() => {});
+  }, []);
+  return url;
+};
 
-const PageShell = ({ children, showImage, aside = null }) => (
+// Passcode stage: left side = ONLY the super-admin KDS login image (Chef
+// Login card removed 2026-10-08). No image set → keypad centred alone.
+const PageShell = ({ children, showImage }) => {
+  const loginImage = useLoginImage();
+  return (
   <div
     className="min-h-screen w-full flex flex-col"
     style={{ background: "linear-gradient(135deg, #ffffff 0%, #ffffff 45%, #E7F5FF 100%)" }}
   >
-    <header className="h-16 flex items-center px-4 sm:px-8 shrink-0">
-      <div className="flex items-center gap-3">
-        <BrandMark size={36} />
-      </div>
-    </header>
-    {showImage ? (
+    <Header showMenu={false} />
+    {showImage && loginImage ? (
       <main className="flex-1 flex">
-        {/* Left: chef header card (light border) — pehle chef ki illustration thi */}
+        {/* Left: super-admin KDS login image only */}
         <div className="hidden md:flex flex-1 items-center justify-center px-8">
-          {aside}
+          <img src={loginImage} alt="" data-testid="kds-login-image" className="w-full max-w-[520px] max-h-[70vh] object-contain" />
         </div>
         <div className="flex-1 flex items-center justify-center px-4 py-6">
           <div className="w-full max-w-[400px]">{children}</div>
@@ -68,7 +54,8 @@ const PageShell = ({ children, showImage, aside = null }) => (
       </main>
     )}
   </div>
-);
+  );
+};
 
 const pillInputClass =
   "w-full h-[50px] rounded-full bg-[#e5e6e1] outline-none text-center font-bold tracking-[0.25em] uppercase text-black placeholder:normal-case placeholder:tracking-normal placeholder:text-black/30 pl-12";
@@ -275,9 +262,6 @@ function PasscodeStage({ branchLabel, placeLabel, onLoggedIn, onSessionLost, onC
     <div className="flex flex-col items-center">
       {/* Chhoti screen par (left card chhupa) chef header yahin */}
       <div className="md:hidden flex flex-col items-center text-center mb-5">
-        <span className="w-14 h-14 rounded-full flex items-center justify-center mb-2.5" style={{ background: "#E7F5FF", color: ACCENT }}>
-          <ChefHat className="w-7 h-7" strokeWidth={1.8} />
-        </span>
         <div className="text-[20px] font-extrabold tracking-tight text-[#111111]">Chef Login</div>
         {placeLabel ? <div className="mt-2 text-[11.5px] font-semibold text-[#495057] bg-black/5 rounded-full px-3 py-1">{placeLabel}</div> : null}
       </div>
@@ -355,13 +339,43 @@ function PasscodeStage({ branchLabel, placeLabel, onLoggedIn, onSessionLost, onC
             <AlertDialogAction
               data-testid="change-branch-confirm-btn"
               onClick={onChangeBranch}
-              className="bg-bp-brand-primary hover:bg-[#e02b2b]"
+              className="bg-bp-brand-primary hover:bg-[#1971C2]"
             >
               Disconnect &amp; Change
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+/* After pairing (2026-10-08): KDS-style top bar + Welcome popup → Settings
+   (Petpooja flow). POS IP arrives with the pair response, pre-filled there. */
+// Same shared header as every other KDS screen (no menu while unpaired).
+const KdsTopBar = () => <Header showMenu={false} />;
+
+function WelcomeStage({ restaurant, posIp, onGo }) {
+  return (
+    <div className="h-screen flex flex-col bg-[#F8F9FA]">
+      <KdsTopBar />
+      <div className="flex-1 relative">
+        <div className="absolute inset-0 bg-black/45 flex items-center justify-center p-4">
+          <div className="w-full max-w-[600px] bg-white rounded-md shadow-xl" data-testid="kds-welcome">
+            <div className="px-6 py-4 border-b border-[#F1F3F5] text-[22px] font-semibold text-[#343A40]">Welcome to Bhojpe KDS</div>
+            <div className="px-6 py-5 space-y-3 text-[15px] leading-relaxed text-[#495057]">
+              <p>{restaurant ? <><b className="text-[#212529]">{restaurant}</b> se screen connect ho gayi. </> : null}System shuru karne se pehle Settings me POS ka IP address aur kitchen check kar lo.</p>
+              <p>{posIp ? <>POS IP <b className="text-[#212529] tabular-nums">{posIp}</b> pair code se automatic mil gaya hai.</> : "POS IP pair code se nahi mila — Settings me haath se daal sakte ho."}</p>
+            </div>
+            <div className="px-6 py-4 border-t border-[#F1F3F5] flex justify-end">
+              <button type="button" onClick={onGo} data-testid="kds-welcome-go"
+                className="h-11 px-6 rounded-md text-white text-[14px] font-semibold uppercase tracking-wide" style={{ background: "#434343" }}>
+                Go to Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -391,13 +405,15 @@ export default function Setup() {
       restaurant: res.restaurant,
       branch: res.branch,
       server: res.server,
+      // POS machine's LAN IP from the Pair Code (null when the POS didn't send one).
+      posIp: res.posIp ? (res.posPort ? `${res.posIp}:${res.posPort}` : res.posIp) : null,
       // This branch's real kitchens (billing Kitchen rows), not the demo
       // STATIONS list - see KdsController::pair()'s `stations` field.
       stations: res.stations || [],
     });
     actions.refresh();
     setConnectedInfo(res);
-    setStage("station");
+    setStage("welcome");
   };
 
   const handleStationPicked = (st) => {
@@ -442,8 +458,25 @@ export default function Setup() {
     setStage("connect");
   };
 
+  if (stage === "welcome") {
+    return <WelcomeStage restaurant={state.connection.restaurant} posIp={state.connection.posIp} onGo={() => setStage("settings")} />;
+  }
+  if (stage === "settings") {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#F8F9FA]">
+        <KdsTopBar />
+        <main className="flex-1 overflow-y-auto px-4 py-8">
+          <KdsGeneralSettings
+            onCancel={() => setStage("station")}
+            onSaved={(f) => (f.station ? handleStationPicked(f.station) : setStage("station"))}
+          />
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <PageShell showImage={stage === "passcode"} aside={<ChefHeaderCard restaurant={state.connection.restaurant} station={pickedStation} />}>
+    <PageShell showImage={stage === "passcode"}>
       {stage === "connect" && <ConnectStage onConnected={handleConnected} />}
       {stage === "station" && (
         <StationStage initial={pickedStation} stations={connectedInfo?.stations ?? state.connection.stations} onNext={handleStationPicked} />

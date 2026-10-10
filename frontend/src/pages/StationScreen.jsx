@@ -4,6 +4,7 @@ import { useKds, ageOf, ageLevel } from "@/state/kdsState";
 import { STATUS_ORDER, STATUS_LABEL } from "@/services/mockOrderService";
 import { StatusColumn } from "@/components/StatusColumn";
 import { ArrowLeft } from "lucide-react";
+import { Header } from "@/components/Header";
 import { light as BP } from '../theme/tokens'
 
 const slug = (s) => s.replace(/\s+/g, "-").toLowerCase();
@@ -24,18 +25,22 @@ export default function StationScreen() {
 
   if (stations.length === 0) {
     return (
-      <div className="kds-scope h-screen flex flex-col items-center justify-center gap-3 bg-[#F7F7F7] text-center px-6" data-testid="station-screen-empty">
+      <div className="kds-scope h-screen flex flex-col bg-[#F7F7F7]" data-testid="station-screen-empty">
+      <Header />
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
         <div className="font-head font-extrabold text-lg text-[#2C2C2C]">No kitchen stations configured</div>
         <div className="text-sm text-black/55 max-w-sm">Add kitchens for this branch in the billing admin panel, then reconnect this screen.</div>
         <Link to="/" className="mt-2 min-h-[44px] px-4 rounded-md bg-[#2C2C2C] text-white flex items-center gap-2 text-sm font-bold">
           <ArrowLeft className="w-4 h-4" /> Back to KDS
         </Link>
       </div>
+      </div>
     );
   }
 
   return (
     <div className="kds-scope mode-tv h-screen flex flex-col bg-[#F7F7F7] overflow-hidden" data-testid="station-screen">
+      <Header />
       <header className="bg-[#2C2C2C] text-white px-4 sm:px-6 py-3 flex items-center gap-4 shrink-0">
         <Link to="/" data-testid="station-back-link" className="min-h-[44px] px-3 rounded-md bg-white/10 flex items-center gap-2 text-sm font-bold">
           <ArrowLeft className="w-4 h-4" /> KDS
@@ -51,7 +56,7 @@ export default function StationScreen() {
           <span
             data-testid="station-overdue-count"
             className="rounded-md px-3 py-1.5"
-            style={{ background: overdue ? BP.status.danger : "rgba(255,255,255,0.1)" }}
+            style={{ background: overdue ? "#E8590C" : "rgba(255,255,255,0.1)" }}
           >
             {overdue} overdue
           </span>

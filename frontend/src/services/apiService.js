@@ -42,6 +42,26 @@ export const health = () => api.get("/health").then((r) => r.data);
 // Super-admin's platform logo (billing's PlatformSetting 'brand_logo'), same
 // mark shown across every Bhojpe product. Cached so the header/sidebar never
 // flash the fallback mark on reload while the network call is in flight.
+// Chef-login screen image (super-admin → Login Image → Bhojpe KDS), cached
+// so it shows instantly on the next load.
+const LOGIN_IMAGE_CACHE_KEY = "bhojpe_kds_login_image";
+export const getCachedLoginImage = () => {
+  try {
+    return localStorage.getItem(LOGIN_IMAGE_CACHE_KEY) || null;
+  } catch {
+    return null;
+  }
+};
+export const fetchLoginImage = () =>
+  api.get("/login-image").then((r) => {
+    const url = r.data?.url ? `${r.data.url}${r.data.version ? `?v=${r.data.version}` : ""}` : null;
+    try {
+      if (url) localStorage.setItem(LOGIN_IMAGE_CACHE_KEY, url);
+      else localStorage.removeItem(LOGIN_IMAGE_CACHE_KEY);
+    } catch {}
+    return url;
+  });
+
 const LOGO_CACHE_KEY = "bhojpe_kds_brand_logo";
 export const getCachedBrandLogo = () => {
   try {
@@ -52,10 +72,23 @@ export const getCachedBrandLogo = () => {
 };
 export const fetchBrandLogo = () =>
   api.get("/brand-logo").then((r) => {
-    const url = r.data?.url || null;
+    // KDS's own logo (super-admin → Brand Logo → KDS Logo) first, else the platform logo.
+    const url = r.data?.kds_url || r.data?.url || null;
     try {
       if (url) localStorage.setItem(LOGO_CACHE_KEY, url);
+      else localStorage.removeItem(LOGO_CACHE_KEY);
     } catch {}
+    // Browser-tab icon = super-admin's app icon (falls back to the logo).
+    const icon = r.data?.icon_url || url;
+    if (icon) {
+      let link = document.querySelector("link[rel='icon']");
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "icon";
+        document.head.appendChild(link);
+      }
+      link.href = icon;
+    }
     return url;
   });
 
@@ -102,6 +135,8 @@ export const setOrderPriority = (id, priority) =>
 export const setItemDone = (id, index, done) =>
   api.patch(`/orders/${id}/items/${index}`, { done }).then((r) => r.data);
 export const clearOrder = (id) => api.delete(`/orders/${id}`).then((r) => r.data);
+// ✕ Reject (2026-10-09) — also cancels the KOT's items in POS / billing.
+export const rejectOrder = (id, reason) => api.post(`/orders/${id}/reject`, { reason }).then((r) => r.data);
 export const setItemAvailability = (id, available) =>
   api.patch(`/menu/${id}`, { available }).then((r) => r.data);
 

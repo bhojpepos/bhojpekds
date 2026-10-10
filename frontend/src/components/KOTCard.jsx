@@ -43,11 +43,11 @@ const titleCase = (s = "") => s.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUp
 const PRIORITY = {
   normal: null,
   high: { label: "High", color: "#F59F00", bg: "#FFF4E6" },
-  urgent: { label: "Urgent", color: BP.status.danger, bg: "#FFF5F5" },
+  urgent: { label: "Urgent", color: "#E8590C", bg: "#FFF4E6" },
 };
 
-const TIMER_COLOR = { fresh: "#495057", warning: "#E8590C", delayed: BP.status.danger };
-const TIMER_BG = { fresh: "#F1F3F5", warning: "#FFF4E6", delayed: "#FFF5F5" };
+const TIMER_COLOR = { fresh: "#495057", warning: "#E8590C", delayed: "#E8590C" };
+const TIMER_BG = { fresh: "#F1F3F5", warning: "#FFF4E6", delayed: "#FFF4E6" };
 // Table label "area letter / table no" — billing ab "G/1" bhejta hai; purane
 // orders me "Ground Floor / 1" aata tha, use bhi "G/1" dikhao.
 const tableLabel = (order) => {
@@ -159,7 +159,12 @@ export const KOTCard = ({ order }) => {
       {/* ── Items — tap = "ban gaya" (green ✓), dobara tap = hatao ── */}
       <div className="border-t border-[#F1F3F5]">
         {order.items.map((i, idx) => {
-          const { base, variant } = splitVariant(i.name);
+          // Billing now relays the variant separately (i.variant); older tickets
+          // may still carry it inside the name — "Farmhouse Pizza (Regular)".
+          const split = splitVariant(i.name);
+          const base = i.variant ? i.name : split.base;
+          const variant = i.variant || split.variant;
+          const notes = [...(i.specialNotes || []), i.note].filter(Boolean);
           return (
             <button
               key={idx}
@@ -172,9 +177,12 @@ export const KOTCard = ({ order }) => {
               <span className="min-w-0 flex-1">
                 <span className={`k-item-name ${i.done ? "text-[#2B8A3E]" : "text-[#111111]"}`}>{base}</span>
                 {variant ? <span className="k-item-name" style={{ color: i.done ? "#2B8A3E" : "#228BE6" }}> ({variant})</span> : null}
-                {i.note && (
-                  <span className={`block k-note italic mt-0.5 ${i.done ? "text-[#2F9E44]" : "text-[#868E96]"}`}>{i.note}</span>
-                )}
+                {i.addons?.length ? (
+                  <span className={`block k-note mt-0.5 ${i.done ? "text-[#2F9E44]" : "text-[#495057]"}`}>+ {i.addons.join(", ")}</span>
+                ) : null}
+                {notes.length ? (
+                  <span className={`block k-note italic mt-0.5 ${i.done ? "text-[#2F9E44]" : "text-[#868E96]"}`}>[Note] {notes.join(", ")}</span>
+                ) : null}
               </span>
               <span className={`k-item-qty shrink-0 ${i.done ? "text-[#2B8A3E]" : "text-[#111111]"}`}>{i.qty}</span>
             </button>
@@ -183,7 +191,7 @@ export const KOTCard = ({ order }) => {
       </div>
 
       {order.note && (
-        <div className="px-4 py-2 k-note text-[#C92A2A] bg-[#FFF5F5] border-b border-[#F1F3F5]">Note: {order.note}</div>
+        <div className="px-4 py-2 k-note text-[#D9480F] bg-[#FFF4E6] border-b border-[#F1F3F5]">Note: {order.note}</div>
       )}
 
       {/* ── Actions: icon buttons + poori chaudai ka main button ── */}

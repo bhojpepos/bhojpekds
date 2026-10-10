@@ -39,7 +39,12 @@ class OrderItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
     qty: int = 1
     name: str
-    note: Optional[str] = None
+    # Relayed from billing (RelayOrderToKds) since 2026-10-08 — before this the
+    # KDS only kept name + note, so variant / add-ons / preset notes vanished.
+    variant: Optional[str] = None           # "Half", "Regular"
+    addons: List[str] = []                  # ["Extra Butter"]
+    note: Optional[str] = None              # free-text item note
+    specialNotes: List[str] = []            # preset KOT notes ("Less spicy")
     done: bool = False
 
 
@@ -93,6 +98,10 @@ class Order(BaseDocument):
     lastBillingStatusAt: Optional[str] = None      # last-applied timestamp from a billing-origin status push (ordering guard)
     pickupAt: Optional[str] = None          # only ever set for a customer-app takeaway order today
     customerName: Optional[str] = None
+    # How the finished ticket left the pass (2026-10-08): served (dine-in) |
+    # delivered (delivery) | picked (pickup) — set from billing's order
+    # status (auto) or the KDS footer button.
+    outcome: Optional[str] = None
 
 
 class MenuItem(BaseDocument):
@@ -134,10 +143,20 @@ class StatusUpdate(BaseModel):
     status: str
 
 
+class RejectRequest(BaseModel):
+    reason: Optional[str] = None
+
+
 class BillingItemStatusUpdate(BaseModel):
     billingOrderItemId: str
     status: str
     sentAt: str
+
+
+class BillingOrderOutcome(BaseModel):
+    billingOrderId: str
+    outcome: str                  # served | delivered | picked | completed (paid)
+    sentAt: Optional[str] = None
 
 
 class PriorityUpdate(BaseModel):

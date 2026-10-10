@@ -5,7 +5,7 @@ import { Timer, TrendingUp, RefreshCw } from "lucide-react";
 const barColor = (secs, worst) => {
   if (secs == null) return "#E5E7EB";
   const r = worst ? secs / worst : 0;
-  if (r > 0.85) return "#DC2626";
+  if (r > 0.85) return "#E8590C";
   if (r > 0.6) return "#F59E0B";
   return "#16A34A";
 };

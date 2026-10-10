@@ -118,6 +118,13 @@ export function KdsProvider({ children }) {
   const [now, setNow] = useState(Date.now());
   const [alert, setAlert] = useState(null);
   const [undoItem, setUndoItem] = useState(null);
+  // Undo lives on the KOT card itself (2026-10-08) — offered for 10s after a
+  // status change, then the card settles into its new place.
+  useEffect(() => {
+    if (!undoItem) return undefined;
+    const t = setTimeout(() => setUndoItem((cur) => (cur && cur.at === undoItem.at ? null : cur)), 10000);
+    return () => clearTimeout(t);
+  }, [undoItem]);
   const alertTimer = useRef(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -388,6 +395,19 @@ export function KdsProvider({ children }) {
         patchOrder(id, { items: order.items.map((i, x) => (x === index ? { ...i, done } : i)) });
         const res = await call(() => api.setItemDone(id, index, done));
         if (res) patchOrder(id, res);
+      },
+
+      // Not optimistic: the ticket leaves only after billing cancelled the
+      // KOT, so a failure (offline / already cooking) keeps it on the board.
+      // Throws with billing's / the server's message for the caller to toast.
+      rejectOrder: async (id, reason) => {
+        try {
+          await api.rejectOrder(id, reason);
+        } catch (e) {
+          throw new Error(e?.response?.data?.detail || e?.message || "KOT reject nahi hua");
+        }
+        setOrders((prev) => prev.filter((o) => o.id !== id));
+        markOnline(true);
       },
 
       removeOrder: async (id) => {

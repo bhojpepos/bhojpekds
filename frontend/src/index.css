@@ -1,7 +1,75 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Archivo+Black&display=swap");
+
+/* "Kitchen Display System" wordmark — heavy slanted face to match the Bhojpe logo (2026-10-08). */
+.kds-wordmark {
+  display: inline-block;
+  font-family: "Archivo Black", Poppins, sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  transform: skewX(-9deg);
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* KDS has no red (2026-10-08): every red value of the shared generated tokens
+   (theme/bhojpe-tokens.css, light theme) is re-pointed for this app only —
+   brand / button red → KDS blue #228BE6, danger / delayed / cancelled red →
+   orange. design-system/tokens.json stays as it is. */
+:root:root,
+:root[data-theme="light"] {
+  --bhojpe-primary: #228BE6;
+  --bp-brand-primary: #228BE6;
+  --bp-brand-primary-rgb: 34 139 230;
+  --bp-brand-hover: #1971C2;
+  --bp-brand-hover-rgb: 25 113 194;
+  --bp-brand-pressed: #1864AB;
+  --bp-brand-pressed-rgb: 24 100 171;
+  --bp-brand-soft: #E7F5FF;
+  --bp-brand-soft-rgb: 231 245 255;
+  --bp-brand-subtle: #D0EBFF;
+  --bp-brand-subtle-rgb: 208 235 255;
+  --bp-status-danger: #E8590C;
+  --bp-status-danger-rgb: 232 89 12;
+  --bp-status-danger-hover: #D9480F;
+  --bp-status-danger-hover-rgb: 217 72 15;
+  --bp-status-danger-text: #D9480F;
+  --bp-status-danger-text-rgb: 217 72 15;
+  --bp-status-danger-soft: #FFF4E6;
+  --bp-status-danger-soft-rgb: 255 244 230;
+  --bp-button-primary-bg: #228BE6;
+  --bp-button-primary-bg-rgb: 34 139 230;
+  --bp-button-primary-hover: #1971C2;
+  --bp-button-primary-hover-rgb: 25 113 194;
+  --bp-button-outline-border: #228BE6;
+  --bp-button-outline-border-rgb: 34 139 230;
+  --bp-button-outline-text: #228BE6;
+  --bp-button-outline-text-rgb: 34 139 230;
+  --bp-button-danger-bg: #E8590C;
+  --bp-button-danger-bg-rgb: 232 89 12;
+  --bp-button-danger-hover: #D9480F;
+  --bp-button-danger-hover-rgb: 217 72 15;
+  --bp-badge-error-bg: #FFF4E6;
+  --bp-badge-error-bg-rgb: 255 244 230;
+  --bp-badge-error-text: #D9480F;
+  --bp-badge-error-text-rgb: 217 72 15;
+  --bp-badge-brand-bg: #E7F5FF;
+  --bp-badge-brand-bg-rgb: 231 245 255;
+  --bp-badge-brand-text: #1971C2;
+  --bp-badge-brand-text-rgb: 25 113 194;
+  --bp-kds-delayed: #E8590C;
+  --bp-kds-delayed-rgb: 232 89 12;
+  --bp-order-cancelled: #E8590C;
+  --bp-order-cancelled-rgb: 232 89 12;
+  --bp-order-rejected: #E8590C;
+  --bp-order-rejected-rgb: 232 89 12;
+  --bp-room-maintenance: #E8590C;
+  --bp-room-maintenance-rgb: 232 89 12;
+  --bp-food-non-veg: #D9480F;
+  --bp-food-non-veg-rgb: 217 72 15;
+  --bp-brand-focus-ring: rgba(34, 139, 230, 0.28);
+  --bp-control-focus-ring: rgba(34, 139, 230, 0.28);
+}
 
 :root {
     /* aliases of the generated BhojPe tokens (src/theme/bhojpe-tokens.css) */
@@ -32,7 +100,7 @@ body {
         --card-foreground: 0 0% 17%;
         --popover: 0 0% 100%;
         --popover-foreground: 0 0% 17%;
-        --primary: 210 79% 52%; /* main buttons = blue #228BE6 (Save buttons = --bp-button-save-bg) */
+        --primary: 208 79% 52%; /* main buttons = KDS blue #228BE6 (Save buttons = --bp-button-save-bg) */
         --bp-check: 210 79% 52%; /* checkbox/radio blue #228BE6 */
         --bp-toggle: 160 82% 40%; /* toggle green #12B886 */
         --primary-foreground: 0 0% 100%;

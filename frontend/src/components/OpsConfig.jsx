@@ -177,8 +177,8 @@ export const PrinterConfig = () => {
           data-testid="printer-status"
           className="rounded-md p-3 text-sm font-semibold"
           style={{
-            background: status.reachable ? "#ECFDF5" : BP.brand.soft,
-            color: status.reachable ? "#047857" : "#DC2626",
+            background: status.reachable ? "#ECFDF5" : "#FFF4E6",
+            color: status.reachable ? "#047857" : "#E8590C",
           }}
         >
           {status.reachable

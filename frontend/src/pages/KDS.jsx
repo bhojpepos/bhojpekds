@@ -9,7 +9,7 @@ import { DelayAlertBanner } from "@/components/DelayAlertBanner";
 import { StatusColumn } from "@/components/StatusColumn";
 import { NewOrderAlert } from "@/components/NewOrderAlert";
 import { KdsSidebar } from "@/components/KdsSidebar";
-import { UndoBar } from "@/components/UndoBar";
+import { KotTicketBoard } from "@/components/KotTicketBoard";
 import { WifiOff } from "lucide-react";
 
 export default function KDS() {
@@ -72,60 +72,28 @@ export default function KDS() {
         </div>
       )}
 
-      <FilterBar
-        filter={filter}
-        setFilter={setFilter}
-        query={query}
-        setQuery={setQuery}
-        counts={counts}
-        stations={state.connection.stations}
-        stationFilter={state.settings.stationFilterOn ? state.station : "all"}
-        onStationFilterChange={(value) => {
-          if (value === "all") {
-            actions.setSettings({ stationFilterOn: false });
-          } else {
-            actions.setStation(value);
-            actions.setSettings({ stationFilterOn: true });
-          }
-        }}
-      />
-      <RushIndicator />
       <DelayAlertBanner />
 
-      {/* Mobile segmented status navigation */}
-      {isNarrow && <div className="flex gap-2 px-3 py-2 bg-white border-b border-[#E5E7EB] overflow-x-auto thin-scroll">
-        {STATUS_ORDER.map((st) => (
-          <button
-            key={st}
-            data-testid={`mobile-status-${st}`}
-            onClick={() => setMobileStatus(st)}
-            className={`shrink-0 min-h-[48px] px-4 rounded-md text-sm font-extrabold border flex items-center gap-2 ${
-              mobileStatus === st ? "text-white" : "bg-white text-[#2C2C2C] border-[#E5E7EB]"
-            }`}
-            style={mobileStatus === st ? { background: state.settings.colors[st], borderColor: state.settings.colors[st] } : {}}
-          >
-            {STATUS_LABEL[st]}
-            <span className="rounded px-1.5 bg-black/10">{byStatus(st).length}</span>
-          </button>
-        ))}
-      </div>}
-
-      <main className="flex-1 min-h-0 p-3 sm:p-4">
-        {isNarrow ? (
-          <div className="h-full min-h-0">
-            <StatusColumn status={mobileStatus} orders={byStatus(mobileStatus)} />
-          </div>
-        ) : (
-          <div className="grid h-full min-h-0 gap-4 grid-cols-2 xl:grid-cols-4">
-            {STATUS_ORDER.map((st) => (
-              <StatusColumn key={st} status={st} orders={byStatus(st)} />
-            ))}
-          </div>
-        )}
+      {/* KOT board (2026-10-07) — Petpooja-style tickets in Bhojpe POS
+          Live View colours: per-item "ban gaya" toggle, Food Ready in the
+          header, item summary on the left. Old 4-column status board
+          (StatusColumn / FilterBar) is kept in the codebase, just unused here. */}
+      <main className="flex-1 min-h-0">
+        <KotTicketBoard
+          stations={state.connection.stations || []}
+          stationFilter={state.settings.stationFilterOn ? state.station : "all"}
+          onStationFilterChange={(value) => {
+            if (value === "all") {
+              actions.setSettings({ stationFilterOn: false });
+            } else {
+              actions.setStation(value);
+              actions.setSettings({ stationFilterOn: true });
+            }
+          }}
+        />
       </main>
 
       <NewOrderAlert />
-      <UndoBar />
       <KdsSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
     </div>
   );
