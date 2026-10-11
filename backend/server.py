@@ -1,4 +1,5 @@
 import asyncio
+import time
 import hmac
 import logging
 import os
@@ -1394,6 +1395,34 @@ async def ws_endpoint(ws: WebSocket, device: Optional[str] = None, branch_id: Op
 
 
 app.include_router(api_router)
+
+
+# ─── KDS heartbeat → billing (2026-10-11) ────────────────────────────────────
+# An open KDS screen polls this backend every ~15-20 s with its device token
+# (X-KDS-Device). Piggy-back on that: at most once a minute per device, tell
+# billing the screen is alive (KdsController::heartbeat → Device.last_seen_at).
+# bhojpe-poss shows its "KDS" button only while a branch screen is online.
+_KDS_HEARTBEAT_EVERY_S = 60
+_kds_last_heartbeat: dict = {}
+
+
+async def _send_kds_heartbeat(device_id: str) -> None:
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            await http.post(f"{BILLING_API_BASE_URL}/api/v1/kds/heartbeat", json={"device_id": device_id})
+    except httpx.HTTPError:
+        _kds_last_heartbeat.pop(device_id, None)  # retry on the next request
+
+
+@app.middleware("http")
+async def kds_heartbeat_middleware(request, call_next):
+    device_id = request.headers.get("x-kds-device")
+    if device_id:
+        now = time.monotonic()
+        if now - _kds_last_heartbeat.get(device_id, 0) >= _KDS_HEARTBEAT_EVERY_S:
+            _kds_last_heartbeat[device_id] = now
+            asyncio.create_task(_send_kds_heartbeat(device_id))
+    return await call_next(request)
 
 app.add_middleware(
     CORSMiddleware,
