@@ -67,7 +67,6 @@ const tableLabel = (o) => {
 
 const IcoSearch = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
 const IcoCheckCircle = ({ size = 26 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
-const IcoClose = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
 const REJECT_REASONS = ["Item khatam", "Kitchen band", "Galat order", "Customer ne mana kiya"];
 
 // ✕ Reject confirm (2026-10-09) — orange, KDS uses no red.
@@ -111,18 +110,9 @@ const IcoUndo = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none
 const IcoFlag = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>;
 const IcoSwap = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>;
 const IcoHistory = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l4 2" /></svg>;
+const IcoClose = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
 const IcoChevron = ({ open }) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }}><polyline points="6 9 12 15 18 9" /></svg>;
 
-/* Petpooja-style on/off switch — grey off, green on ("ban gaya") */
-function ItemToggle({ on, onChange, label, disabled }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={disabled ? undefined : onChange} disabled={disabled}
-      title={disabled ? "Pehle KOT Accept karein" : label}
-      style={{ position: "relative", width: 38, height: 20, borderRadius: 10, padding: 0, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.45 : 1, flexShrink: 0, border: `1px solid ${on ? "#2F9E44" : "#D0D5DB"}`, background: on ? "#2F9E44" : "#F1F3F5", transition: "background .15s, border-color .15s" }}>
-      <span style={{ position: "absolute", top: 2, left: on ? 20 : 2, width: 14, height: 14, borderRadius: "50%", background: on ? "#fff" : "#C4C9CF", transition: "left .15s, background .15s" }} />
-    </button>
-  );
-}
 
 const PRIORITY = {
   normal: null,
@@ -130,6 +120,28 @@ const PRIORITY = {
   urgent: { label: "Urgent", color: "#D9480F", bg: "#FFF4E6" },
 };
 const shortStation = (s = "") => String(s).replace(/\s*kitchen\s*/i, " ").trim() || s;
+
+// KOT card (2026-10-14 redesign, reference screenshot): white card —
+//   KOT #16 · [DINE IN] · Order #26
+//   Table G2 (big) · kitchen · date-time · N Item(s) · timer
+//   - - - - - - - - - - - - - - - - - -
+//   biller                         [STATUS]
+//   [ Item Name                          ]
+//   [ 1 x Cola Can            [Ready]    ]   per-item "ban gaya" button
+//   footer = the old round icon buttons + status-colour main button
+// KDS uses no red: brand = blue.
+const BLUE = "#228BE6";
+const TYPE_PILL = { "Dine In": "#228BE6", Pickup: "#E67700", Delivery: "#E67700", "Room Service": "#7C5CC4" };
+const STATUS_PILL_LABEL = { new: "Pending", cooking: "Cooking", ready: "Food Ready" };
+const IcoChef = ({ size = 16 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.457.316-.844.727-1.041a4 4 0 0 0-2.134-7.589 5 5 0 0 0-9.186 0 4 4 0 0 0-2.134 7.588c.411.198.727.585.727 1.041V20a1 1 0 0 0 1 1Z" /><path d="M6 17h12" /></svg>;
+const IcoCloche = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5a1.5 1.5 0 0 0-1.45 1.88A8.5 8.5 0 0 0 3.5 15h17a8.5 8.5 0 0 0-7.05-8.12A1.5 1.5 0 0 0 12 5ZM2 17a1 1 0 0 0 0 2h20a1 1 0 0 0 0-2H2Z" /></svg>;
+const fmtDateTime = (v) => {
+  const d = new Date(typeof v === "number" ? v : Date.parse(v));
+  if (Number.isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  let h = d.getHours(); const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12;
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(h)}:${p(d.getMinutes())} ${ap}`;
+};
 
 function KotTicket({ order, now, slaMin }) {
   const { actions, state, undoItem } = useKds();
@@ -139,107 +151,124 @@ function KotTicket({ order, now, slaMin }) {
   const type = TYPE_KEY[order.type] || "Dine In";
   const open = isOpen(order);
   const late = isLate(order, now, slaMin);
-  // Card colour = KDS Settings → status colour (new / cooking / ready / completed),
-  // shown as a light tint; SLA-crossed tickets keep an orange accent.
+  // Status colour = KDS Settings → status colours (pill + main button outline).
   const statusColor = state.settings.colors?.[order.status] || "#6B7280";
-  // Card colour = status colour ALWAYS (an orange "late" override made a late
-  // Accept KOT look like Cooking). Late is shown on the timer instead.
-  const accent = statusColor;
-  const headBg = tint(accent, 0.16);
+  const typeColor = TYPE_PILL[type] || BLUE;
   const where = type === "Dine In"
-    ? { cap: "Table", val: order.table ? tableLabel(order) : "—", sub: "DINE IN" }
+    ? { cap: "Table", val: order.table ? tableLabel(order) : "—" }
     : type === "Room Service"
-      ? { cap: "Room", val: order.table || "—", sub: "ROOM SERVICE" }
-      : { cap: "Order", val: order.refNo || order.kot, sub: type === "Delivery" ? "DELIVERY" : "PICK UP" };
+      ? { cap: "Room", val: order.table || "—" }
+      : order.customerName ? { cap: "", val: order.customerName } : null;
   const age = ageOf(order, now);
   const biller = order.createdByName || order.waiterName || "";
   const doneCount = order.items.filter((i) => i.done).length;
+  const itemQty = order.items.reduce((n, i) => n + (Number(i.qty) || 1), 0);
   const pr = PRIORITY[order.priority];
   const otherStations = (state.connection.stations || []).filter((s) => s !== order.station);
 
-  // Flow (2026-10-08): Accept → Cooking (tick every item) → Food Ready (only
-  // once all items are ticked) → Served / Delivered / Picked (by order type;
-  // also arrives automatically from billing when the POS serves/delivers).
+  // Flow (2026-10-08): Start Cooking → tick every item → Food Ready →
+  // Served / Delivered / Picked (by order type; also arrives from billing).
   const allDone = order.items.length > 0 && doneCount === order.items.length;
   const outcomeLabel = OUTCOME_LABEL[outcomeOf(order)];
   const mainAction = order.status === "new"
-    // Button colour = the card header's status colour (2026-10-09).
-    ? { label: "Accept", bg: accent, run: () => actions.advance(order.id) }
+    ? { label: "Accept", run: () => actions.advance(order.id) }
     : order.status === "cooking"
       ? (allDone
-        ? { label: "Food Ready", bg: accent, run: () => actions.advance(order.id) }
-        : { label: `Food Ready ${doneCount}/${order.items.length}`, bg: accent, disabled: true, hint: "Pehle saare items toggle karein" })
+        ? { label: "Food Ready", run: () => actions.advance(order.id) }
+        : { label: `Food Ready ${doneCount}/${order.items.length}`, disabled: true, hint: "Pehle saare items Ready karein" })
       : order.status === "ready"
-        ? { label: outcomeLabel, bg: accent, run: () => actions.advance(order.id) }
-        : { label: "Clear", bg: accent, run: () => actions.removeOrder(order.id) };
+        ? { label: outcomeLabel, run: () => actions.advance(order.id) }
+        : { label: "Clear", run: () => actions.removeOrder(order.id) };
   const cyclePriority = () => {
     const seq = ["normal", "high", "urgent"];
     actions.setPriority(order.id, seq[(seq.indexOf(order.priority || "normal") + 1) % seq.length]);
   };
-
-  const cell = (cap, val, sub, last, color) => (
-    <div style={{ flex: 1, minWidth: 0, textAlign: "center", padding: "7px 4px", borderRight: last ? "none" : `1px solid ${tint(accent, 0.35)}` }}>
-      {cap ? <div style={{ fontSize: 11, fontWeight: cap === "LATE" ? 800 : 500, color: cap === "LATE" ? "#E8590C" : undefined, letterSpacing: cap === "LATE" ? 0.5 : 0 }}>{cap}</div> : null}
-      <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.15, color: color || accent, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", filter: "brightness(0.8)" }}>{val}</div>
-      <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: 0.3 }}>{sub}</div>
-    </div>
-  );
+  const statusText = order.status === "completed" ? outcomeLabel : STATUS_PILL_LABEL[order.status] || order.status;
   const iconBtn = { width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #CED4DA", background: "#fff", color: "#495057", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0 };
 
   return (
     <div data-testid={`kot-card-${order.kot}`}
       onDoubleClick={state.settings.dblClickAdvance && !mainAction.disabled ? (e) => { if (!e.target.closest("button")) mainAction.run(); } : undefined}
-      style={{ display: "inline-block", width: "100%", background: "#fff", borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,0.12)", border: pr ? `1.5px solid ${pr.color}` : `1px solid ${tint(accent, 0.45)}`, borderTop: `4px solid ${accent}`, overflow: "hidden", fontFamily: F, opacity: order.status === "completed" ? 0.6 : 1, breakInside: "avoid", marginBottom: 14 }}>
-      {/* Header: where · KOT no · timer */}
-      <div style={{ display: "flex", background: headBg, color: "#343A40" }}>
-        {cell(where.cap, where.val, where.sub)}
-        {cell("KOT", order.kot, "NO.")}
-        {cell(open ? (late ? "LATE" : "Time") : "Status", open ? age.text : order.status === "ready" ? "Ready" : outcomeLabel, open ? "MM : SS" : "", true, late ? "#E8590C" : undefined)}
+      style={{ display: "inline-block", width: "100%", background: "#fff", borderRadius: 14, boxShadow: "0 1px 3px rgba(16,24,40,0.06)", border: pr ? `1.5px solid ${pr.color}` : "1px solid #EEF0F2", overflow: "hidden", fontFamily: F, opacity: order.status === "completed" ? 0.6 : 1, breakInside: "avoid", marginBottom: 14 }}>
+      {/* Header */}
+      <div style={{ padding: "16px 18px 12px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8 }}>
+          <span data-testid={`kot-number-${order.kot}`} style={{ fontSize: 18, fontWeight: 600, color: BLUE, whiteSpace: "nowrap" }}>KOT #{order.kot}</span>
+          <span data-testid={`kot-type-${order.kot}`} style={{ padding: "3px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: typeColor, background: tint(typeColor, 0.12), border: `1px solid ${tint(typeColor, 0.3)}` }}>{type}</span>
+          <span style={{ justifySelf: "end", fontSize: 16, fontWeight: 500, color: "#343A40", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{order.refNo ? `Order #${order.refNo}` : ""}</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", gap: 10, marginTop: 8 }}>
+          {where ? (
+            <span style={{ fontSize: where.cap ? 20 : 15, fontWeight: 700, color: BLUE, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 170 }}>{where.cap ? `${where.cap} ${where.val}` : where.val}</span>
+          ) : <span />}
+          <span style={{ fontSize: 12.5, color: "#6B7280", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{order.station || ""}</span>
+          <span style={{ fontSize: 12.5, color: "#6B7280", whiteSpace: "nowrap" }}>{fmtDateTime(order.createdAt)}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <span style={{ fontSize: 14, color: "#343A40" }}>{itemQty} Item(s)</span>
+          {SOURCE_LABEL[order.source] ? (
+            <span data-testid={`kot-source-${order.kot}`} style={{ padding: "1px 8px", borderRadius: 10, fontSize: 11.5, fontWeight: 700,
+              background: ONLINE_SOURCES.has(order.source) ? "#E7F5FF" : "#F8F9FA", color: ONLINE_SOURCES.has(order.source) ? "#1971C2" : "#495057", border: `1px solid ${ONLINE_SOURCES.has(order.source) ? "#A5D8FF" : "#E9ECEF"}` }}>
+              {ONLINE_SOURCES.has(order.source) ? `Online · ${SOURCE_LABEL[order.source]}` : SOURCE_LABEL[order.source]}
+            </span>
+          ) : null}
+          {pr ? <span style={{ padding: "1px 8px", borderRadius: 10, fontSize: 11.5, fontWeight: 700, background: pr.bg, color: pr.color }}>{pr.label}</span> : null}
+          {order.handoffs?.length ? <span style={{ fontSize: 11.5, color: "#1971C2", fontWeight: 600 }}>from {shortStation(order.handoffs[order.handoffs.length - 1].from)}</span> : null}
+          {open ? (
+            <span data-testid={`kot-timer-${order.kot}`} style={{ marginLeft: "auto", padding: "2px 9px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: late ? "#E8590C" : "#495057", background: late ? "#FFF4E6" : "#F1F3F5" }}>
+              {late ? "LATE " : ""}{age.text}
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      {/* Info row: biller · station · priority · progress */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", background: "#F5F5F5", borderBottom: "1px solid #E9ECEF", fontSize: 11.5, color: "#6B7280", minWidth: 0 }}>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>B : {biller || "—"}</span>
-        {SOURCE_LABEL[order.source] ? (
-          <span data-testid={`kot-source-${order.kot}`} style={{ flexShrink: 0, padding: "1px 7px", borderRadius: 10, fontWeight: 700,
-            background: ONLINE_SOURCES.has(order.source) ? "#E7F5FF" : "#fff", color: ONLINE_SOURCES.has(order.source) ? "#1971C2" : "#434343",
-            border: `1px solid ${ONLINE_SOURCES.has(order.source) ? "#A5D8FF" : "#E5E7EB"}` }}>
-            {ONLINE_SOURCES.has(order.source) ? `Online · ${SOURCE_LABEL[order.source]}` : SOURCE_LABEL[order.source]}
-          </span>
-        ) : null}
-        {order.station ? <span style={{ flexShrink: 0, padding: "1px 7px", borderRadius: 10, background: "#fff", border: "1px solid #E5E7EB", color: "#434343", fontWeight: 600 }}>{shortStation(order.station)}</span> : null}
-        {pr ? <span style={{ flexShrink: 0, padding: "1px 7px", borderRadius: 10, background: pr.bg, color: pr.color, fontWeight: 700 }}>{pr.label}</span> : null}
-        {order.handoffs?.length ? <span style={{ flexShrink: 0, color: "#1971C2", fontWeight: 600 }}>from {shortStation(order.handoffs[order.handoffs.length - 1].from)}</span> : null}
-        <span style={{ marginLeft: "auto", flexShrink: 0, fontWeight: 700, color: doneCount === order.items.length && doneCount ? "#2F9E44" : "#9CA3AF" }}>{doneCount}/{order.items.length} ready</span>
+      <div style={{ margin: "0 18px", borderTop: "1.5px dashed #DEE2E6" }} />
+
+      {/* Biller · status pill */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px" }}>
+        <span style={{ color: "#495057", display: "inline-flex" }}><IcoCloche /></span>
+        <span style={{ fontSize: 14, color: "#343A40", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{biller || "—"}</span>
+        <span data-testid={`kot-status-${order.kot}`} style={{ marginLeft: "auto", flexShrink: 0, padding: "3px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: statusColor, background: tint(statusColor, 0.1), border: `1px solid ${tint(statusColor, 0.45)}` }}>{statusText}</span>
       </div>
 
-      {/* Items: qty · name · toggle */}
-      <div>
-        {order.items.map((it, idx) => (
-          <div key={idx} data-testid={`kot-${order.kot}-item-${idx}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderBottom: "1px solid #F1F3F5", background: it.done ? "#F1FBF4" : "#fff" }}>
-            <span style={{ width: 18, textAlign: "center", fontSize: 13.5, fontWeight: 600, color: it.done ? "#2B8A3E" : "#212529", flexShrink: 0 }}>{it.qty}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, color: it.done ? "#2B8A3E" : "#212529", textDecoration: it.done ? "line-through" : "none", textDecorationColor: "rgba(43,138,62,.5)" }}>
-                {it.name}
-                {it.variant ? <span style={{ color: it.done ? "#2B8A3E" : "#228BE6" }}> ({it.variant})</span> : null}
+      {/* Items box — per-item Ready button (only after Start Cooking) */}
+      <div style={{ margin: "0 18px", border: "1px solid #EEF0F2", borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ padding: "8px 14px", background: "#F8F9FA", fontSize: 13, color: "#495057" }}>Item Name</div>
+        {order.items.map((it, idx) => {
+          const canTick = order.status === "cooking";
+          return (
+            <div key={idx} data-testid={`kot-${order.kot}-item-${idx}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: "1px solid #F1F3F5", background: it.done ? "#F1FBF4" : "#fff" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, color: it.done ? "#2B8A3E" : "#212529", lineHeight: 1.4 }}>
+                  {it.qty} x {it.name}
+                  {it.variant ? <span style={{ color: it.done ? "#2B8A3E" : BLUE }}> ({it.variant})</span> : null}
+                </div>
+                {it.addons?.length ? <div style={{ fontSize: 11.5, color: "#495057", marginTop: 1 }}>+ {it.addons.join(", ")}</div> : null}
+                {it.specialNotes?.length || it.note ? (
+                  <div style={{ fontSize: 11.5, color: "#868E96", fontStyle: "italic", marginTop: 1 }}>[Note] {[...(it.specialNotes || []), it.note].filter(Boolean).join(", ")}</div>
+                ) : null}
               </div>
-              {it.addons?.length ? <div style={{ fontSize: 11.5, color: "#495057", marginTop: 1 }}>+ {it.addons.join(", ")}</div> : null}
-              {it.specialNotes?.length || it.note ? (
-                <div style={{ fontSize: 11.5, color: "#868E96", fontStyle: "italic", marginTop: 1 }}>[Note] {[...(it.specialNotes || []), it.note].filter(Boolean).join(", ")}</div>
+              {canTick || it.done ? (
+                <button type="button" role="switch" aria-checked={!!it.done} disabled={!canTick} data-testid={`kot-${order.kot}-item-${idx}-btn`}
+                  onClick={() => actions.toggleItemDone(order.id, idx, !it.done)}
+                  title={it.done ? `${it.name} — wapas karein` : `${it.name} ban gaya`}
+                  style={{ flexShrink: 0, height: 34, padding: "0 12px", borderRadius: 6, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: canTick ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6,
+                    border: `1px solid ${it.done ? "#2F9E44" : "#A5D8FF"}`, background: it.done ? "#2F9E44" : "#E7F5FF", color: it.done ? "#fff" : "#1971C2" }}>
+                  {it.done ? <IcoCheckCircle size={15} /> : <IcoChef size={15} />}
+                  {it.done ? "Ready" : "Mark Ready"}
+                </button>
               ) : null}
             </div>
-            <ItemToggle on={!!it.done} disabled={order.status === "new" || order.status === "completed"} label={it.done ? `${it.name} — wapas karein` : `${it.name} ban gaya`} onChange={() => actions.toggleItemDone(order.id, idx, !it.done)} />
-          </div>
-        ))}
+          );
+        })}
       </div>
-      {order.note ? <div style={{ padding: "8px 10px", fontSize: 12, color: "#D9480F", background: "#FFF4E6" }}>Note: {order.note}</div> : null}
+      {order.note ? <div style={{ margin: "10px 18px 0", padding: "8px 12px", borderRadius: 8, fontSize: 12.5, color: "#D9480F", background: "#FFF4E6" }}>Note: {order.note}</div> : null}
 
-      {/* Footer: print · recall · priority · kitchen change · history · main action */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px", borderTop: "1px solid #F1F1F1" }}>
+      {/* Footer (same icon buttons as before the 2026-10-14 redesign): print ·
+          recall/undo · priority · kitchen change · history · ✕ reject · main action */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "14px 18px 16px" }}>
         <button type="button" onClick={() => actions.printKot(order.id)} title="Print KOT" data-testid={`kot-print-btn-${order.kot}`} style={iconBtn}><IcoPrint /></button>
         {canUndo ? (
-          // Just changed (Accept / Food Ready / Served…) → compact blue Undo in
-          // the Recall slot, so the footer never overflows (2026-10-08).
           <button type="button" onClick={actions.undoLast} title={`Undo — wapas ${String(undoItem.from).toUpperCase()}`} data-testid={`kot-undo-btn-${order.kot}`}
             style={{ ...iconBtn, color: "#228BE6", borderColor: "#228BE6", background: "#E7F5FF" }}><IcoUndo /></button>
         ) : order.status !== "new" && order.status !== "completed" ? (
@@ -265,7 +294,7 @@ function KotTicket({ order, now, slaMin }) {
             style={{ ...iconBtn, marginLeft: "auto", width: 36, height: 36 }}><IcoClose /></button>
         ) : null}
         <button type="button" onClick={mainAction.disabled ? undefined : mainAction.run} disabled={!!mainAction.disabled} title={mainAction.hint || mainAction.label} data-testid={`kot-action-btn-${order.kot}`}
-          style={{ marginLeft: order.status === "new" ? 0 : "auto", minWidth: 0, height: 36, padding: "0 12px", borderRadius: 4, border: "none", background: mainAction.bg, color: "#fff", fontSize: 13, fontWeight: 700, cursor: mainAction.disabled ? "not-allowed" : "pointer", opacity: mainAction.disabled ? 0.45 : 1, fontFamily: F, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+          style={{ marginLeft: order.status === "new" ? 0 : "auto", minWidth: 0, height: 36, padding: "0 12px", borderRadius: 4, border: "none", background: statusColor, color: "#fff", fontSize: 13, fontWeight: 700, cursor: mainAction.disabled ? "not-allowed" : "pointer", opacity: mainAction.disabled ? 0.45 : 1, fontFamily: F, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
           <IcoCheckCircle size={16} /><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{mainAction.label}</span>
         </button>
       </div>
@@ -330,7 +359,7 @@ function ItemSummary({ orders }) {
 // Normal View (2026-10-09): KOTs fill the shortest column one by one, so a
 // short ticket doesn't leave an empty gap under it (CSS grid rows took the
 // tallest card's height). Oldest stays first, read left → right.
-const COL_MIN = 290;
+const COL_MIN = 320; // footer icons + Accept fit without truncation (2026-10-14)
 const COL_GAP = 14;
 const estHeight = (o) => 190 + (o.items || []).reduce((h, it) =>
   h + 46 + (it.addons?.length ? 18 : 0) + ((it.note || it.specialNotes?.length) ? 18 : 0), 0) + (o.note ? 36 : 0);
@@ -414,7 +443,10 @@ export function KotTicketBoard({ stations = [], stationFilter = "all", onStation
 
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", background: "#FAFAFA", fontFamily: F }}>
+    // Settings → Display mode (2026-10-14): Tablet / TV / Large TV scale the
+    // whole board via the --k factor set on .kds-scope (index.css). zoom keeps
+    // the packed-column maths right; height is divided back so it still fits.
+    <div style={{ height: "100%", zoom: "var(--k, 1)", display: "flex", flexDirection: "column", overflow: "hidden", background: "#FAFAFA", fontFamily: F }}>
       {/* Search + MFR bar removed (2026-10-08) per request. */}
       {/* Body: item summary (left) · tickets (column-wrap) */}
       {/* Items-to-cook panel and the KOT cards scroll separately (2026-10-09). */}
@@ -430,7 +462,7 @@ export function KotTicketBoard({ stations = [], stationFilter = "all", onStation
             </div>
           ) : (
             masonry ? (
-              <div style={{ columnWidth: 290, columnGap: 14 }}>
+              <div style={{ columnWidth: 320, columnGap: 14 }}>
                 {shown.map((o) => <KotTicket key={o.id} order={o} now={now} slaMin={slaMin} />)}
               </div>
             ) : (

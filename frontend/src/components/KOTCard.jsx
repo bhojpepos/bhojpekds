@@ -74,7 +74,10 @@ export const KOTCard = ({ order }) => {
   const { now, state, actions } = useKds();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const age = ageOf(order, now);
-  const level = ageLevel(age.seconds, state.settings.slaMinutes * 60);
+  // Billing Edit Menu Item → Preparation Time (slowest item) is this ticket's
+  // target; tickets without one fall back to the KDS-wide SLA setting.
+  const targetMin = Number(order.prepMinutes) > 0 ? Number(order.prepMinutes) : null;
+  const level = ageLevel(age.seconds, (targetMin || state.settings.slaMinutes) * 60);
   const typeLabel = TYPE_LABEL[order.type] || TYPE_LABEL["dine-in"];
   const isOnline = ONLINE_SOURCES.has(order.source);
   const pr = PRIORITY[order.priority];
@@ -127,6 +130,7 @@ export const KOTCard = ({ order }) => {
           >
             <Timer className={`w-3.5 h-3.5 ${level === "delayed" ? "blink-soft" : ""}`} />
             {age.text}
+            {targetMin ? <span style={{ opacity: 0.6, fontWeight: 500 }} title="Target (menu item preparation time)">/ {targetMin}m</span> : null}
           </span>
         </div>
 

@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { light as BP } from '../theme/tokens'
 import {
   ArrowLeft, Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv,
-  Bell, Maximize2, RotateCcw, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History, SlidersHorizontal,
+  Maximize2, RotateCcw, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History, SlidersHorizontal,
 } from "lucide-react";
 import { KdsGeneralSettings } from "@/components/KdsGeneralSettings";
 import { Header } from "@/components/Header";
@@ -45,7 +45,6 @@ export const SETTINGS_SECTIONS = [
   { id: "weekly", label: "Weekly Trends", Icon: TrendingUp },
   { id: "audit", label: "Audit Trail", Icon: History },
   { id: "stations", label: "Station Screens", Icon: MonitorSmartphone },
-  { id: "notifications", label: "Notifications", Icon: Bell },
 ];
 
 const Row = ({ label, hint, children, testId }) => (
@@ -156,9 +155,8 @@ export default function SettingsSectionPage() {
       case "station":
         return (
           <div className="space-y-3">
-            <Row label="Show only this station's orders" hint="Filter the board by kitchen station">
-              <Switch data-testid="station-filter-toggle" checked={s.stationFilterOn} onCheckedChange={(v) => actions.setSettings({ stationFilterOn: v })} />
-            </Row>
+            {/* "Show only this station's orders" toggle removed (2026-10-14) — the
+                board always shows only this screen's kitchen; pick it below. */}
             <div className="text-xs font-bold uppercase tracking-widest opacity-55">Current Station: {state.station}</div>
             {(state.connection.stations ?? []).map((st) => (
               <button
@@ -177,7 +175,6 @@ export default function SettingsSectionPage() {
       case "profile":
         return <ProfileSection />;
       case "sound":
-      case "notifications":
         return (
           <div className="space-y-3">
             <Row label="Sound" hint="Loud alert on every new KOT">

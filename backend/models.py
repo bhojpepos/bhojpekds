@@ -45,6 +45,7 @@ class OrderItem(BaseModel):
     addons: List[str] = []                  # ["Extra Butter"]
     note: Optional[str] = None              # free-text item note
     specialNotes: List[str] = []            # preset KOT notes ("Less spicy")
+    prepMinutes: Optional[int] = None       # billing Edit Menu Item → Preparation Time (2026-10-14)
     done: bool = False
 
 
@@ -102,6 +103,9 @@ class Order(BaseDocument):
     # delivered (delivery) | picked (pickup) — set from billing's order
     # status (auto) or the KDS footer button.
     outcome: Optional[str] = None
+    # Cooking target for this ticket = slowest item's Preparation Time from
+    # billing (2026-10-14). Null → the KDS-wide SLA setting is used.
+    prepMinutes: Optional[int] = None
 
 
 class MenuItem(BaseDocument):
@@ -137,6 +141,7 @@ class OrderCreate(BaseModel):
     itemKitchenIds: dict[str, Optional[str]] = {}
     pickupAt: Optional[str] = None
     customerName: Optional[str] = None
+    prepMinutes: Optional[int] = None
 
 
 class StatusUpdate(BaseModel):
