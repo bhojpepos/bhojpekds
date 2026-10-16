@@ -476,6 +476,84 @@ async def disconnect_device(device_id: str, pairing: dict = Depends(require_chef
     return {"ok": True}
 
 
+# ── Production entry (2026-10-16) ────────────────────────────────────────
+# Chef records bulk prep (gravy, rice …) from the kitchen screen. Proxies
+# billing's /kitchen/production API with the chef's own token and this
+# screen's paired branch, so stock moves in billing inventory right away
+# (raw material out, prepared item in). Billing checks the chef's
+# "Production entry" right and the owner-approval setting itself.
+async def _production_call(pairing: dict, method: str, path: str, **kwargs):
+    headers = {
+        "Authorization": f"Bearer {pairing['chefToken']}",
+        "Accept": "application/json",
+        "X-Branch-Id": str(pairing.get("branchId") or ""),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            resp = await http.request(method, f"{BILLING_API_BASE_URL}/api/v1/kitchen/production{path}", headers=headers, **kwargs)
+    except httpx.HTTPError:
+        raise HTTPException(503, "Could not reach the BhojPe server.")
+    try:
+        payload = resp.json()
+    except ValueError:
+        payload = {}
+    if resp.status_code >= 400 or not payload.get("success", True):
+        message = payload.get("message") or "Production request failed."
+        errors = payload.get("errors") or {}
+        if isinstance(errors, dict) and errors:
+            first = next(iter(errors.values()))
+            if isinstance(first, list) and first:
+                message = first[0]
+        raise HTTPException(resp.status_code if resp.status_code >= 400 else 502, message)
+    return payload
+
+
+@api_router.get("/production/items")
+async def production_items(pairing: dict = Depends(require_chef_token)):
+    payload = await _production_call(pairing, "GET", "/items")
+    return payload.get("data", [])
+
+
+@api_router.get("/production/items/{item_id}/preview")
+async def production_preview(item_id: str, quantity: float, pairing: dict = Depends(require_chef_token)):
+    payload = await _production_call(pairing, "GET", f"/items/{item_id}/preview", params={"quantity": quantity})
+    return payload.get("data", {})
+
+
+@api_router.get("/production/materials")
+async def production_materials(pairing: dict = Depends(require_chef_token)):
+    payload = await _production_call(pairing, "GET", "/materials")
+    return payload.get("data", [])
+
+
+@api_router.get("/production/units")
+async def production_units(pairing: dict = Depends(require_chef_token)):
+    payload = await _production_call(pairing, "GET", "/units")
+    return payload.get("data", [])
+
+
+@api_router.get("/production/recent")
+async def production_recent(pairing: dict = Depends(require_chef_token)):
+    payload = await _production_call(pairing, "GET", "/recent")
+    return payload.get("data", [])
+
+
+@api_router.post("/production")
+async def production_create(body: dict, pairing: dict = Depends(require_chef_token)):
+    body = body or {}
+    payload = await _production_call(pairing, "POST", "", json={
+        "item_id": body.get("item_id"),
+        "new_item_name": body.get("new_item_name"),
+        "unit_id": body.get("unit_id"),
+        "save_as_recipe": bool(body.get("save_as_recipe")),
+        "planned_quantity": body.get("planned_quantity"),
+        "actual_quantity": body.get("actual_quantity"),
+        "lines": body.get("lines") or [],
+        "notes": body.get("notes"),
+    })
+    return {"message": payload.get("message"), "run": payload.get("data", {})}
+
+
 @api_router.get("/printers")
 async def list_printers(pairing: dict = Depends(require_chef_token)):
     """Real branch printers - proxies billing's staff-scoped GET /printers

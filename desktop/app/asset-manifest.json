@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "/static/css/main.026db8b6.css",
+    "main.js": "/static/js/main.9df8b39f.js",
+    "static/media/delivery-bike.png": "/static/media/delivery-bike.59719ac8fdfaa99a86d9.png",
+    "index.html": "/index.html",
+    "main.026db8b6.css.map": "/static/css/main.026db8b6.css.map",
+    "main.9df8b39f.js.map": "/static/js/main.9df8b39f.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.026db8b6.css",
+    "static/js/main.9df8b39f.js"
+  ]
+}

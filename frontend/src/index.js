@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // BhojPe design tokens (generated from design-system/tokens.json) — load before app CSS.
 import "@/theme/bhojpe-tokens.css";
 import "@/index.css";
+// every native <select> opens our white list (2026-10-16, same as POS / billing)
+import "@/lib/selectPopup.css";
+import "@/lib/selectPopup";
 import App from "@/App";
 
 const queryClient = new QueryClient({

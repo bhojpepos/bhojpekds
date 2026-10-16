@@ -7,6 +7,7 @@ import { STATUS_ORDER, STATUS_LABEL } from "@/services/mockOrderService";
 import { StatusLine } from "@/components/ConnectionStatus";
 import { DeviceCard } from "@/components/DeviceCard";
 import { ItemAvailability } from "@/components/ItemAvailability";
+import { ProductionEntry } from "@/components/ProductionEntry";
 import { TokenScreenPreview } from "@/components/TokenScreenPreview";
 import { PrepInsights } from "@/components/PrepInsights";
 import { ProfileSection } from "@/components/ProfileSection";
@@ -18,7 +19,7 @@ import { toast } from "sonner";
 import { light as BP } from '../theme/tokens'
 import {
   ArrowLeft, Plug, MonitorSmartphone, ChefHat, User, Volume2, LayoutGrid, Palette, Package, Tv,
-  Maximize2, RotateCcw, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History, SlidersHorizontal,
+  Maximize2, RotateCcw, ExternalLink, Timer, Printer, ClipboardList, Mail, TrendingUp, History, SlidersHorizontal, CookingPot,
 } from "lucide-react";
 import { KdsGeneralSettings } from "@/components/KdsGeneralSettings";
 import { Header } from "@/components/Header";
@@ -37,6 +38,7 @@ export const SETTINGS_SECTIONS = [
   { id: "display", label: "Display", Icon: LayoutGrid },
   { id: "colors", label: "Colors", Icon: Palette },
   { id: "items", label: "Items", Icon: Package },
+  { id: "production", label: "Production", Icon: CookingPot },
   { id: "token", label: "Token Screen", Icon: Tv },
   { id: "insights", label: "Prep Insights", Icon: Timer },
   { id: "printer", label: "Printer", Icon: Printer },
@@ -249,6 +251,8 @@ export default function SettingsSectionPage() {
         );
       case "items":
         return <ItemAvailability />;
+      case "production":
+        return <ProductionEntry />;
       case "insights":
         return <PrepInsights />;
       case "printer":

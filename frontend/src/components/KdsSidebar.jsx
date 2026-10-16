@@ -12,7 +12,7 @@ const BLUE = "#228BE6";
 const BLUE_SOFT = "#E7F5FF";
 
 const GROUPS = [
-  { label: "Kitchen", ids: ["station", "items", "stations", "token"] },
+  { label: "Kitchen", ids: ["station", "items", "production", "stations", "token"] },
   { label: "Reports", ids: ["insights", "shift", "weekly", "recap", "audit"] },
   { label: "Setup", ids: ["general", "display", "colors", "sound", "printer", "devices", "connection"] },
   { label: "Account", ids: ["profile"] },

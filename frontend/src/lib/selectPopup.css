@@ -1,0 +1,26 @@
+/* Dropdown look (2026-10-16, user screenshot "jitne bhi dropdown ese aaye"):
+   white panel, roomy 44px rows, 15px text, hover / chosen row light grey
+   with dark text — no blue, no check mark. Native <select> popups via
+   selectPopup.js; same as billing (.dsel-* in public/css/app.css). */
+.dsel-pop {
+  background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(17,24,39,.12), 0 1px 3px rgba(17,24,39,.05); padding: 6px 0; z-index: 2147483000;
+  max-width: min(440px, calc(100vw - 16px)); animation: dsel-in .09s ease-out; box-sizing: border-box;
+}
+@keyframes dsel-in { from { opacity: 0; transform: translateY(-3px) } to { opacity: 1; transform: none } }
+.dsel-list { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.25) transparent; }
+.dsel-list::-webkit-scrollbar { width: 6px; }
+.dsel-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,.25); border-radius: 3px; }
+.dsel-q {
+  display: block; width: calc(100% - 16px); box-sizing: border-box; height: 40px; margin: 2px 8px 6px; padding: 0 12px;
+  border: 1px solid #E5E7EB; border-radius: 6px; font: inherit; font-size: 15px; color: #1F2937; outline: none; background: #fff;
+}
+.dsel-q:focus { border-color: #ADB5BD; }
+.dsel-item {
+  min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 8px 16px;
+  font-size: 15px; line-height: 1.35; font-weight: 400; color: #1F2937; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none;
+}
+.dsel-list:not(:hover) .dsel-item.is-sel, .dsel-item:hover:not(.is-disabled) { background: #F3F4F6; }
+.dsel-item.is-disabled { color: #ADB5BD; cursor: default; }
+

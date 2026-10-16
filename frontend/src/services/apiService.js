@@ -1,6 +1,27 @@
 import axios from "axios";
 
-const BASE = `${process.env.REACT_APP_BACKEND_URL}/api`;
+// When the KDS page is opened from another device on the LAN (kitchen PC →
+// http://<mac-ip>:3000), a "localhost" backend URL would point at that
+// device itself — swap in the host the page was served from.
+// Desktop exe (bhojpekds/desktop) injects the KDS server URL chosen on its
+// setup screen; it wins over the build-time value.
+const BACKEND_URL = (() => {
+  const desktop = typeof window !== "undefined" && window.kdsDesktop && window.kdsDesktop.backendUrl;
+  if (desktop) return String(desktop).replace(/\/$/, "");
+  const raw = process.env.REACT_APP_BACKEND_URL || "";
+  try {
+    const u = new URL(raw);
+    const local = ["localhost", "127.0.0.1"];
+    if (local.includes(u.hostname) && !local.includes(window.location.hostname)) {
+      u.hostname = window.location.hostname;
+    }
+    return u.toString().replace(/\/$/, "");
+  } catch (e) {
+    return raw;
+  }
+})();
+
+const BASE = `${BACKEND_URL}/api`;
 
 const api = axios.create({ baseURL: BASE, timeout: 12000 });
 
@@ -33,7 +54,7 @@ export const sendTestEmail = () => api.post("/reports/test-email").then((r) => r
 // Native browser WebSocket can't set custom headers, so the device token
 // travels as a query param here instead of X-KDS-Device (see ws_endpoint()).
 export const wsUrl = () => {
-  const base = `${process.env.REACT_APP_BACKEND_URL.replace(/^http/, "ws")}/api/ws`;
+  const base = `${BACKEND_URL.replace(/^http/, "ws")}/api/ws`;
   return deviceToken ? `${base}?device=${encodeURIComponent(deviceToken)}` : base;
 };
 
@@ -163,3 +184,13 @@ export const fetchRush = (targetSeconds) =>
 export const fetchShift = (hours = 12) =>
   api.get("/stats/shift", { params: { hours } }).then((r) => r.data);
 
+
+// Production entry (2026-10-16) — chef records bulk prep (gravy, rice …);
+// billing inventory updates right away (raw material out, prepared item in).
+export const fetchProductionItems = () => api.get("/production/items").then((r) => r.data);
+export const fetchProductionPreview = (itemId, quantity) =>
+  api.get(`/production/items/${itemId}/preview`, { params: { quantity } }).then((r) => r.data);
+export const fetchProductionRecent = () => api.get("/production/recent").then((r) => r.data);
+export const saveProduction = (payload) => api.post("/production", payload).then((r) => r.data);
+export const fetchProductionMaterials = () => api.get("/production/materials").then((r) => r.data);
+export const fetchProductionUnits = () => api.get("/production/units").then((r) => r.data);

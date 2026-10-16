@@ -1,0 +1,40 @@
+{
+  "name": "bhojpe-kds",
+  "productName": "Bhojpe KDS",
+  "version": "1.0.0",
+  "description": "Bhojpe Kitchen Display System",
+  "author": "Bhojpe",
+  "main": "main.cjs",
+  "private": true,
+  "scripts": {
+    "copy:web": "rm -rf app && cp -R ../frontend/build app",
+    "build:web": "cd ../frontend && yarn build",
+    "start": "npm run copy:web && electron .",
+    "dist:win": "npm run build:web && npm run copy:web && electron-builder --win",
+    "dist:mac": "npm run build:web && npm run copy:web && electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "41.7.0",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.bhojpe.kds",
+    "productName": "Bhojpe KDS",
+    "directories": { "output": "dist" },
+    "files": ["main.cjs", "preload.cjs", "setup.html", "app/**/*", "build/icon.png"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.png",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "mac": { "target": ["dmg"], "icon": "build/icon.png", "category": "public.app-category.business" },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Bhojpe KDS",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

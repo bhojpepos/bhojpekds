@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src *; img-src 'self' data:">
+<title>Bhojpe KDS</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, #fff 55%, #E7F5FF); color: #1A1A1A; }
+  .card { width: 420px; max-width: calc(100vw - 32px); }
+  .logo { width: 56px; height: 56px; border-radius: 14px; background: #228BE6; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+  .eyebrow { font-size: 12px; letter-spacing: .12em; font-weight: 700; color: #868E96; }
+  h1 { margin: 6px 0 6px; font-size: 26px; }
+  p { margin: 0 0 18px; font-size: 13.5px; color: #555; line-height: 1.5; }
+  input { width: 100%; height: 50px; border-radius: 25px; border: 1px solid #E9ECEF; background: #F1F3F5; padding: 0 20px; font-size: 15px; outline: none; }
+  input:focus { border-color: #228BE6; background: #fff; }
+  button { width: 100%; height: 48px; margin-top: 12px; border: 0; border-radius: 24px; background: #228BE6; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
+  .msg { min-height: 20px; margin-top: 12px; font-size: 13px; text-align: center; }
+  .err { color: #E8590C; } .ok { color: #2F9E44; }
+  .hint { margin-top: 18px; font-size: 12px; color: #868E96; text-align: center; }
+</style>
+</head>
+<body>
+  <form class="card" id="f">
+    <div class="logo">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><rect x="5" y="7" width="4" height="7" rx=".5"/><rect x="10" y="7" width="4" height="7" rx=".5"/><rect x="15" y="7" width="4" height="7" rx=".5"/></svg>
+    </div>
+    <div class="eyebrow">KDS SERVER</div>
+    <h1>Server se connect karein</h1>
+    <p>KDS server ka address daalein (jaise <b>https://kds.bhojpe.com</b> ya <b>http://192.168.1.20:8010</b>).</p>
+    <input id="url" placeholder="https://kds.bhojpe.com" autofocus spellcheck="false">
+    <button id="go" type="submit">Connect</button>
+    <div class="msg" id="msg"></div>
+    <div class="hint">Baad me badalne ke liye: Ctrl + Shift + K &nbsp;·&nbsp; Full screen: F11</div>
+  </form>
+<script>
+  var input = document.getElementById('url'), msg = document.getElementById('msg'), go = document.getElementById('go');
+  input.value = (window.kdsDesktop && window.kdsDesktop.backendUrl) || '';
+  if (/reason=unreachable/.test(location.search)) {
+    msg.className = 'msg err';
+    msg.textContent = 'KDS server se connect nahi ho paya — internet check karein ya address badlein.';
+  }
+  document.getElementById('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var url = input.value.trim().replace(/\/+$/, '');
+    if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
+    msg.className = 'msg'; msg.textContent = 'Check kar rahe hain…'; go.disabled = true;
+    var ctrl = new AbortController(); var t = setTimeout(function () { ctrl.abort(); }, 8000);
+    fetch(url + '/api/health', { signal: ctrl.signal })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function () {
+        clearTimeout(t); msg.className = 'msg ok'; msg.textContent = 'Connected!';
+        window.kdsDesktop.saveBackend(url);
+      })
+      .catch(function () {
+        clearTimeout(t); go.disabled = false; msg.className = 'msg err';
+        msg.textContent = 'Server nahi mila — address aur network check karein.';
+      });
+  });
+</script>
+</body>
+</html>
