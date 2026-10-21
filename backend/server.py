@@ -105,13 +105,17 @@ class Hub:
 
     def __init__(self):
         self.clients: dict[WebSocket, Optional[str]] = {}
+        # KDS scope per connection (2026-10-21): "hotel" = room-service only
+        self.scopes: dict[WebSocket, str] = {}
 
-    async def connect(self, ws: WebSocket, branch_id: Optional[str] = None):
+    async def connect(self, ws: WebSocket, branch_id: Optional[str] = None, scope: str = "all"):
         await ws.accept()
         self.clients[ws] = branch_id
+        self.scopes[ws] = scope or "all"
 
     def disconnect(self, ws: WebSocket):
         self.clients.pop(ws, None)
+        self.scopes.pop(ws, None)
 
     async def broadcast(self, event: str, payload, branch_id: Optional[str] = None):
         dead = []
@@ -122,6 +126,9 @@ class Hub:
             # unscoped/unpaired client (client_branch is None) does NOT receive
             # other branches' real data.
             if branch_id is not None and client_branch != branch_id:
+                continue
+            # Hotel KDS: only room-service orders (other events pass through)
+            if self.scopes.get(ws) == "hotel" and isinstance(payload, dict) and payload.get("type") and payload.get("type") != "room-service":
                 continue
             try:
                 await ws.send_json({"event": event, "payload": payload})
@@ -251,6 +258,9 @@ async def pair(body: PairRequest):
         # POS machine's LAN IP/port from the Pair Code (bhojpe-poss sends it).
         "posIp": data.get("pos_ip"),
         "posPort": data.get("pos_port"),
+        # Hotel KDS Pair Code (2026-10-21): "hotel" = room-service only,
+        # "all" = everything (normal code, and every pairing made before this)
+        "scope": data.get("kds_scope") or "all",
     }
     await db.pairing.update_one({"_id": device_token}, {"$set": pairing_doc}, upsert=True)
 
@@ -266,6 +276,7 @@ async def pair(body: PairRequest):
         "stations": pairing_doc["stations"],
         "posIp": pairing_doc["posIp"],
         "posPort": pairing_doc["posPort"],
+        "scope": pairing_doc["scope"],
         "lastSync": pairing_doc["pairedAt"],
     }
 
@@ -655,9 +666,18 @@ def _branch_filter(ctx: Optional[dict], extra: Optional[dict] = None) -> dict:
     return q
 
 
+def _order_filter(ctx: Optional[dict], extra: Optional[dict] = None) -> dict:
+    """_branch_filter for orders + the screen's KDS scope: a Hotel KDS sees
+    only room-service tickets (2026-10-21). Other scopes see everything."""
+    q = _branch_filter(ctx, extra)
+    if ctx and ctx.get("scope") == "hotel":
+        q["type"] = "room-service"
+    return q
+
+
 @api_router.get("/orders")
 async def list_orders(station: Optional[str] = None, ctx: Optional[dict] = Depends(get_branch_context)):
-    q = _branch_filter(ctx, {"station": station} if station else None)
+    q = _order_filter(ctx, {"station": station} if station else None)
     docs = await db.orders.find(q).sort("kot", -1).to_list(500)
     return [order_out(d) for d in docs]
 
@@ -1095,7 +1115,7 @@ async def weekly_trends(ctx: Optional[dict] = Depends(get_branch_context)):
     buckets = {"this": {}, "last": {}}
     days = {}
 
-    for d in await db.orders.find(_branch_filter(ctx)).to_list(5000):
+    for d in await db.orders.find(_order_filter(ctx)).to_list(5000):
         try:
             created = datetime.fromisoformat(d["createdAt"])
         except Exception:
@@ -1261,7 +1281,7 @@ async def rush_status(target: int = 600, ctx: Optional[dict] = Depends(get_branc
     Settings → SLA, so this bar and the card timers / Delayed filter agree.
     """
     target = max(60, min(target, 4 * 3600))
-    active = await db.orders.find(_branch_filter(ctx, {"status": {"$in": ["new", "cooking"]}})).to_list(1000)
+    active = await db.orders.find(_order_filter(ctx, {"status": {"$in": ["new", "cooking"]}})).to_list(1000)
     nowts = datetime.now(timezone.utc)
     ages = []
     for d in active:
@@ -1274,7 +1294,7 @@ async def rush_status(target: int = 600, ctx: Optional[dict] = Depends(get_branc
 
     hour_ago = nowts.timestamp() - 3600
     recent = 0
-    for d in await db.orders.find(_branch_filter(ctx)).to_list(1000):
+    for d in await db.orders.find(_order_filter(ctx)).to_list(1000):
         try:
             if datetime.fromisoformat(d["createdAt"]).timestamp() >= hour_ago:
                 recent += 1
@@ -1304,7 +1324,7 @@ async def rush_status(target: int = 600, ctx: Optional[dict] = Depends(get_branc
 async def shift_summary(hours: int = 12, ctx: Optional[dict] = Depends(get_branch_context)):
     since = datetime.now(timezone.utc).timestamp() - hours * 3600
     docs = []
-    for d in await db.orders.find(_branch_filter(ctx)).to_list(2000):
+    for d in await db.orders.find(_order_filter(ctx)).to_list(2000):
         try:
             if datetime.fromisoformat(d["createdAt"]).timestamp() >= since:
                 docs.append(d)
@@ -1406,7 +1426,7 @@ async def set_availability(item_id: str, body: AvailabilityUpdate, ctx: Optional
 @api_router.get("/stats/prep-time")
 async def prep_time(ctx: Optional[dict] = Depends(get_branch_context)):
     """Average cooking time (start -> ready) per station, plus pending load."""
-    docs = await db.orders.find(_branch_filter(ctx, {"startedAt": {"$ne": None}, "readyAt": {"$ne": None}})).to_list(1000)
+    docs = await db.orders.find(_order_filter(ctx, {"startedAt": {"$ne": None}, "readyAt": {"$ne": None}})).to_list(1000)
     by = {}
     for d in docs:
         try:
@@ -1422,7 +1442,7 @@ async def prep_time(ctx: Optional[dict] = Depends(get_branch_context)):
         b["count"] += 1
         b["slowest"] = max(b["slowest"], secs)
 
-    active = await db.orders.find(_branch_filter(ctx, {"status": {"$in": ["new", "cooking"]}})).to_list(1000)
+    active = await db.orders.find(_order_filter(ctx, {"status": {"$in": ["new", "cooking"]}})).to_list(1000)
     load = {}
     for d in active:
         load[d.get("station", "Main Kitchen")] = load.get(d.get("station", "Main Kitchen"), 0) + 1
@@ -1455,11 +1475,13 @@ async def ws_endpoint(ws: WebSocket, device: Optional[str] = None, branch_id: Op
     # headers, so query params are the only option here, unlike HTTP calls
     # which use X-KDS-Device - see get_branch_context()).
     resolved_branch_id = branch_id
+    resolved_scope = "all"
     if device:
         pairing = await db.pairing.find_one({"_id": device})
         if pairing:
             resolved_branch_id = pairing["branchId"]
-    await hub.connect(ws, resolved_branch_id)
+            resolved_scope = pairing.get("scope") or "all"
+    await hub.connect(ws, resolved_branch_id, resolved_scope)
     try:
         while True:
             try:
