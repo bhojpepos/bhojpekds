@@ -204,6 +204,22 @@ async def login_image():
     return {"url": kds.get("url"), "version": kds.get("version")}
 
 
+@api_router.get("/app-icon")
+async def app_icon():
+    """KDS desktop app icon set by super-admin (App Icon page -> Bhojpe KDS;
+    billing's PlatformSetting 'kds_app_icon'). The KDS exe reads this on launch
+    and puts the icon on its window / taskbar (Windows) or dock (Mac). Public,
+    like brand-logo - asked before pairing."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.get(f"{BILLING_API_BASE_URL}/api/v1/kds-app/icon")
+        data = resp.json()
+    except (httpx.HTTPError, ValueError):
+        return {"version": None, "win_url": None, "mac_url": None}
+    data = data.get("data", data) if isinstance(data, dict) else {}
+    return {"version": data.get("version"), "win_url": data.get("win_url"), "mac_url": data.get("mac_url")}
+
+
 @api_router.post("/pair")
 async def pair(body: PairRequest):
     """Pairs this browser/screen to a branch via billing's real branch sync
