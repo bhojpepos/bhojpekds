@@ -8,19 +8,28 @@
   max-width: min(440px, calc(100vw - 16px)); animation: dsel-in .09s ease-out; box-sizing: border-box;
 }
 @keyframes dsel-in { from { opacity: 0; transform: translateY(-3px) } to { opacity: 1; transform: none } }
-.dsel-list { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.25) transparent; }
+.dsel-list { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; }
+/* Always-visible scrollbar (2026-10-25, user: "jis dropdown par scroll ho, scroller dikhao") —
+   scrollbar-width / scrollbar-color made Chrome use hidden overlay bars on macOS,
+   so they are only a Firefox fallback now. */
+@supports not selector(::-webkit-scrollbar) { .dsel-list { scrollbar-width: thin; scrollbar-color: #ADB5BD #F1F3F5; } }
 .dsel-list::-webkit-scrollbar { width: 8px; }
-.dsel-list::-webkit-scrollbar-thumb { background: #C4C4C4; border-radius: 4px; }
+.dsel-list::-webkit-scrollbar-track { background: #F1F3F5; border-radius: 4px; }
+.dsel-list::-webkit-scrollbar-thumb { background: #ADB5BD; border-radius: 4px; border: 2px solid #F1F3F5; }
+.dsel-list::-webkit-scrollbar-thumb:hover { background: #868E96; }
 .dsel-q {
   display: block; width: calc(100% - 16px); box-sizing: border-box; height: 40px; margin: 2px 8px 6px; padding: 0 12px;
   border: 1px solid #E5E7EB; border-radius: 6px; font: inherit; font-size: 15px; color: #1F2937; outline: none; background: #fff;
 }
 .dsel-q:focus { border-color: #ADB5BD; }
 .dsel-item {
-  min-height: 48px; box-sizing: border-box; display: flex; align-items: center; padding: 8px 16px;
-  font-size: 16px; line-height: 1.35; font-weight: 400; color: #1F2937; cursor: pointer;
+  min-height: 38px; box-sizing: border-box; display: flex; align-items: center; padding: 6px 14px;
+  font-size: 14px; line-height: 1.35; font-weight: 400; color: #1F2937; cursor: pointer;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none;
 }
 .dsel-list:not(:hover) .dsel-item.is-sel, .dsel-item:hover:not(.is-disabled) { background: #F3F4F6; }
 .dsel-item.is-disabled { color: #ADB5BD; cursor: default; }
+/* compact rows + light separator (2026-10-25, user: "compact karo, separate line halki") */
+.dsel-item + .dsel-item { border-top: 1px solid #F1F3F5; }
+
 
