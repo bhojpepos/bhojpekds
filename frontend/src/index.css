@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Archivo+Black&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Albert+Sans:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&family=Archivo+Black&display=swap");
 
 /* "Kitchen Display System" wordmark — heavy slanted face to match the Bhojpe logo (2026-10-08). */
 .kds-wordmark {
@@ -82,7 +82,7 @@
 
 body {
     margin: 0;
-    font-family: Inter, sans-serif;
+    font-family: Albert Sans, sans-serif;
     -webkit-font-smoothing: antialiased;
     background: var(--bhoj-bg);
     color: var(--bhoj-dark);
@@ -310,4 +310,9 @@ body {
     padding: calc(5px * var(--k)) calc(9px * var(--k));
     border-radius: 999px;
     white-space: nowrap;
+}
+
+/* Bhojpe website rule (2026-11-01): text 18px+ at weight 600+ = Poppins heading */
+:is(.text-lg, .text-xl, .text-2xl, .text-3xl, .text-4xl, .text-5xl, .text-6xl):is(.font-semibold, .font-bold, .font-extrabold, .font-black) {
+  font-family: "Poppins", "Albert Sans", sans-serif;
 }

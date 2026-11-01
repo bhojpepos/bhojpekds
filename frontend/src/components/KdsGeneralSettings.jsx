@@ -7,7 +7,7 @@ import { useKds } from "@/state/kdsState";
 // POS IP comes pre-filled from the Pair Code (bhojpe-poss sends its LAN IP
 // when it generates the code) and can be corrected by hand.
 
-const F = "'Inter', system-ui, sans-serif";
+const F = "'Albert Sans', system-ui, sans-serif";
 const CHECK = "#228BE6";
 
 export const ORDER_TYPE_OPTIONS = [

@@ -373,7 +373,7 @@ export const dark = {
 }
 
 export const typography = {
-  "fontFamily": "Montserrat",
+  "fontFamily": "Albert Sans",
   "fontFamilyFallback": "-apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif",
   "size": {
     "xs": 11,

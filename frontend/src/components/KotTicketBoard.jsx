@@ -12,7 +12,7 @@ import { toast } from "sonner";
    Left panel = live item summary (total qty of every un-cooked item across
    the shown active KOTs). ── */
 
-const F = "'Montserrat', system-ui, sans-serif";
+const F = "'Albert Sans', system-ui, sans-serif";
 const TYPE_KEY = { "dine-in": "Dine In", takeaway: "Pickup", pickup: "Pickup", delivery: "Delivery", "room-service": "Room Service" };
 const TYPE_COLOR = { "Dine In": "#F2B33D", Pickup: "#3D9BE9", Delivery: "#2E8B3A", "Room Service": "#7C5CC4" };
 const LIMIT_COLOR = "#F2662B";
@@ -193,7 +193,7 @@ function KotTicket({ order, now, slaMin }) {
       {/* Header */}
       <div style={{ padding: "16px 18px 12px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8 }}>
-          <span data-testid={`kot-number-${order.kot}`} style={{ fontSize: 18, fontWeight: 600, color: BLUE, whiteSpace: "nowrap" }}>KOT #{order.kot}</span>
+          <span data-testid={`kot-number-${order.kot}`} style={{ fontFamily: "'Poppins', 'Albert Sans', sans-serif", fontSize: 18, fontWeight: 600, color: BLUE, whiteSpace: "nowrap" }}>KOT #{order.kot}</span>
           <span data-testid={`kot-type-${order.kot}`} style={{ padding: "3px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: typeColor, background: tint(typeColor, 0.12), border: `1px solid ${tint(typeColor, 0.3)}` }}>{type}</span>
           <span style={{ justifySelf: "end", fontSize: 16, fontWeight: 500, color: "#343A40", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{order.refNo ? `Order #${order.refNo}` : ""}</span>
         </div>
