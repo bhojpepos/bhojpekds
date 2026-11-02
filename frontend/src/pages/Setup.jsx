@@ -83,7 +83,11 @@ function ConnectStage({ onConnected }) {
       setConnected(res);
     } catch (err) {
       api.setDeviceToken(null);
-      setError(err?.response?.data?.detail || "Invalid sync code or Pair Code");
+      // No response at all = the request never reached the KDS server
+      // (network / CORS / wrong server URL) — not a wrong code (2026-11-04)
+      setError(err?.response
+        ? (err.response.data?.detail || "Invalid sync code or Pair Code")
+        : "KDS server se connect nahi ho paya — internet ya server URL check karein (Ctrl+Shift+K). Code galat nahi hai.");
     }
     setBusy(false);
   };

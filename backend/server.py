@@ -1540,10 +1540,21 @@ async def kds_heartbeat_middleware(request, call_next):
             asyncio.create_task(_send_kds_heartbeat(device_id))
     return await call_next(request)
 
+# The Windows/Mac KDS exe serves its UI from http://127.0.0.1:47810 (and
+# its setup screen from file:// → Origin "null"). A live .env that lists only
+# the web domains blocked every exe request, and the setup screen showed it
+# as "Invalid sync code or Pair Code" (2026-11-04) — so these are always
+# allowed, whatever CORS_ORIGINS says.
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]
+if "*" not in _cors_origins:
+    for _o in ("http://127.0.0.1:47810", "http://localhost:47810", "null"):
+        if _o not in _cors_origins:
+            _cors_origins.append(_o)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

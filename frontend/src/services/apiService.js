@@ -6,7 +6,9 @@ import axios from "axios";
 // Desktop exe (bhojpekds/desktop) injects the KDS server URL chosen on its
 // setup screen; it wins over the build-time value.
 const BACKEND_URL = (() => {
-  const desktop = typeof window !== "undefined" && window.kdsDesktop && window.kdsDesktop.backendUrl;
+  // apiBase = the exe's own origin, which proxies /api to the KDS server
+  // (no browser CORS); older exes only had backendUrl.
+  const desktop = typeof window !== "undefined" && window.kdsDesktop && (window.kdsDesktop.apiBase || window.kdsDesktop.backendUrl);
   if (desktop) return String(desktop).replace(/\/$/, "");
   const raw = process.env.REACT_APP_BACKEND_URL || "";
   try {

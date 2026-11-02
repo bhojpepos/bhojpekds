@@ -4,6 +4,7 @@
 // userData/config.json. Ctrl+Shift+K reopens setup, F11 toggles fullscreen.
 const { app, BrowserWindow, ipcMain, Menu, globalShortcut, nativeImage } = require('electron');
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
@@ -35,15 +36,67 @@ function writeConfig(cfg) {
 
 // Static server for the React build with SPA fallback (BrowserRouter routes
 // like /station/grill must resolve to index.html).
+// API proxy (2026-11-04): the page calls /api/* on its OWN origin and this
+// server forwards it to the KDS server (WebSocket /api/ws too). Browser CORS
+// never applies, so pairing / orders work even when the live server's
+// CORS_ORIGINS doesn't list the exe — that blocked every request and the
+// setup screen said "Invalid sync code or Pair Code".
+const isApi = (url) => /^\/api(\/|\?|$)/.test(url || '');
+function proxyTarget() { return new URL(backendUrl()); }
+function proxyOptions(req, t) {
+  const headers = { ...req.headers, host: t.host };
+  delete headers.origin; delete headers.referer;
+  return {
+    protocol: t.protocol, hostname: t.hostname, port: t.port || (t.protocol === 'https:' ? 443 : 80),
+    method: req.method, path: t.pathname.replace(/\/$/, '') + req.url, headers,
+  };
+}
+function proxyHttp(req, res) {
+  let t;
+  try { t = proxyTarget(); } catch (e) { res.writeHead(502); res.end(); return; }
+  const preq = (t.protocol === 'https:' ? https : http).request(proxyOptions(req, t), (pres) => {
+    res.writeHead(pres.statusCode || 502, pres.headers);
+    pres.pipe(res);
+  });
+  preq.setTimeout(30000, () => preq.destroy(new Error('timeout')));
+  preq.on('error', () => {
+    if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ detail: 'KDS server se connect nahi ho paya — internet ya server URL check karein (Ctrl+Shift+K).' }));
+  });
+  req.pipe(preq);
+}
+function proxyUpgrade(req, socket, head) {
+  let t;
+  try { t = proxyTarget(); } catch (e) { socket.destroy(); return; }
+  const preq = (t.protocol === 'https:' ? https : http).request(proxyOptions(req, t));
+  preq.on('upgrade', (pres, psock, phead) => {
+    const lines = ['HTTP/1.1 101 Switching Protocols'];
+    for (let i = 0; i < pres.rawHeaders.length; i += 2) lines.push(pres.rawHeaders[i] + ': ' + pres.rawHeaders[i + 1]);
+    socket.write(lines.join('\r\n') + '\r\n\r\n');
+    if (phead && phead.length) socket.write(phead);
+    if (head && head.length) psock.write(head);
+    psock.pipe(socket).pipe(psock);
+    psock.on('error', () => socket.destroy());
+    socket.on('error', () => psock.destroy());
+  });
+  preq.on('response', (pres) => { socket.end('HTTP/1.1 ' + pres.statusCode + ' ' + (pres.statusMessage || '') + '\r\n\r\n'); });
+  preq.on('error', () => socket.destroy());
+  preq.end();
+}
+
 function startWebServer(port) {
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
+      if (isApi(req.url)) { proxyHttp(req, res); return; }
       const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
       let file = path.normalize(path.join(WEB_ROOT, urlPath));
       if (!file.startsWith(WEB_ROOT)) { res.writeHead(403); res.end(); return; }
       if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(WEB_ROOT, 'index.html');
       res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
       fs.createReadStream(file).pipe(res);
+    });
+    server.on('upgrade', (req, socket, head) => {
+      if (isApi(req.url)) proxyUpgrade(req, socket, head); else socket.destroy();
     });
     server.once('error', reject);
     server.listen(port, '127.0.0.1', () => resolve(server.address().port));
@@ -156,7 +209,9 @@ function createWindow() {
   applyRuntimeAppIcon();
 }
 
-ipcMain.on('kds:get-config', (e) => { e.returnValue = { ...readConfig(), backendUrl: backendUrl() }; });
+// backendUrl = the real KDS server (setup screen); apiBase = this exe's own
+// origin, which proxies /api to it (the kitchen screen uses apiBase).
+ipcMain.on('kds:get-config', (e) => { e.returnValue = { ...readConfig(), backendUrl: backendUrl(), apiBase: webOrigin || '' }; });
 ipcMain.handle('kds:save-backend', (e, url) => {
   const clean = String(url || '').trim().replace(/\/+$/, '');
   writeConfig({ ...readConfig(), backendUrl: clean });

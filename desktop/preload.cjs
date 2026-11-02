@@ -7,6 +7,7 @@ const cfg = ipcRenderer.sendSync('kds:get-config') || {};
 contextBridge.exposeInMainWorld('kdsDesktop', {
   isDesktop: true,
   backendUrl: cfg.backendUrl || '',
+  apiBase: cfg.apiBase || '',
   saveBackend: (url) => ipcRenderer.invoke('kds:save-backend', url),
   openSetup: () => ipcRenderer.send('kds:open-setup'),
 });
